@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="b13c2f2b-d88e-4208-8cd9-3a562a905e26" name="Default" comment="">
+      <change type="DELETED" beforePath="$PROJECT_DIR$/domains_list.txt" afterPath="" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/finance.py" afterPath="$PROJECT_DIR$/finance.py" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -39,8 +40,8 @@
       <file leaf-file-name="bsa.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/bsa.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="238">
-              <caret line="14" column="0" lean-forward="false" selection-start-line="14" selection-start-column="0" selection-end-line="14" selection-end-column="13" />
+            <state relative-caret-position="561">
+              <caret line="48" column="84" lean-forward="false" selection-start-line="48" selection-start-column="41" selection-end-line="48" selection-end-column="84" />
               <folding>
                 <element signature="e#25#34#0" expanded="true" />
               </folding>
@@ -71,10 +72,10 @@
       <file leaf-file-name="finance.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/finance.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="306">
-              <caret line="18" column="0" lean-forward="true" selection-start-line="18" selection-start-column="0" selection-end-line="18" selection-end-column="0" />
+            <state relative-caret-position="415">
+              <caret line="100" column="0" lean-forward="true" selection-start-line="100" selection-start-column="0" selection-end-line="100" selection-end-column="0" />
               <folding>
-                <element signature="e#25#44#0" expanded="true" />
+                <element signature="e#25#34#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -352,7 +353,7 @@
         <state relative-caret-position="17">
           <caret line="1" column="0" lean-forward="false" selection-start-line="1" selection-start-column="0" selection-end-line="1" selection-end-column="0" />
           <folding>
-            <element signature="e#25#44#0" expanded="true" />
+            <element signature="e#25#34#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -427,8 +428,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/bsa.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="238">
-          <caret line="14" column="0" lean-forward="false" selection-start-line="14" selection-start-column="0" selection-end-line="14" selection-end-column="13" />
+        <state relative-caret-position="561">
+          <caret line="48" column="84" lean-forward="false" selection-start-line="48" selection-start-column="41" selection-end-line="48" selection-end-column="84" />
           <folding>
             <element signature="e#25#34#0" expanded="true" />
           </folding>
@@ -437,10 +438,10 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/finance.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="306">
-          <caret line="18" column="0" lean-forward="true" selection-start-line="18" selection-start-column="0" selection-end-line="18" selection-end-column="0" />
+        <state relative-caret-position="415">
+          <caret line="100" column="0" lean-forward="true" selection-start-line="100" selection-start-column="0" selection-end-line="100" selection-end-column="0" />
           <folding>
-            <element signature="e#25#44#0" expanded="true" />
+            <element signature="e#25#34#0" expanded="true" />
           </folding>
         </state>
       </provider>
