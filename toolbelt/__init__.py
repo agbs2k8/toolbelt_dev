@@ -8,4 +8,4 @@ __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
 from .stats import visualize_distribution, test_stationarity
-from .bsa import fix_bsa_email
+from .bsa import fix_bsa_email, multiprocess_fix_emails
