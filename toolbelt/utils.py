@@ -31,15 +31,15 @@ def validate_str(func):
     return wrapper
 
 
-def validate_list(func):
-    """
-    A decorator function to validate if the input is list
-    :param func: a function to validate
-    """
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        if isinstance(args[0], list):
-            return func(*args, **kwargs)
-        else:
-            raise TypeError('This tool only supports input as a list')
-    return wrapper
+# def validate_list(func):
+#     """
+#    A decorator function to validate if the input is list
+#    :param func: a function to validate
+#    """
+#    @wraps(func)
+#    def wrapper(*args, **kwargs):
+#        if isinstance(args[0], list):
+#            return func(*args, **kwargs)
+#        else:
+#            raise TypeError('This tool only supports input as a list')
+#    return wrapper

@@ -5,7 +5,7 @@ import string
 import re
 import pandas as pd
 from jellyfish import levenshtein_distance
-from .utils import validate_str, validate_list
+from .utils import validate_str
 from .distribute_processing import multiprocess_function
 
 __location__ = os.path.realpath(
@@ -61,7 +61,7 @@ def fix_bsa_email(email_in, domains = None):
     return None
 
 
-@validate_list
+# @validate_list
 def fix_email_list(email_list, return_dict=None, domains=None):
     if return_dict is not None:
         for email in email_list:
@@ -73,7 +73,7 @@ def fix_email_list(email_list, return_dict=None, domains=None):
         return fixed_emails
 
 
-@validate_list
+# @validate_list
 def multiprocess_fix_emails(email_list, n_jobs=4):
     domains = pd.read_pickle(os.path.join(__location__, "domains.pickle"))
     return multiprocess_function(data_in=email_list, func=fix_email_list, n_jobs=n_jobs, shared_resources=domains)

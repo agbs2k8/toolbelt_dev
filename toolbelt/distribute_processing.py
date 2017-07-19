@@ -2,13 +2,13 @@
 
 import multiprocessing
 import os
-from .utils import validate_list
+# from .utils import validate_list
 
 __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
 
-@validate_list
+# @validate_list
 def multiprocess_function(data_in: list, func: object, n_jobs: int = 4, shared_resources: object = None) -> object:
     """
     Theis function can take a list of data and multiprocess-apply it against a function
