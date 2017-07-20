@@ -26,6 +26,14 @@ def fix_bsa_email(email_in, domains = None):
     if re.match(regex, email_in):
         return email_in
 
+    email_segments = email_in.split()
+    for segment in email_segments:
+        re_match=re.search(regex,segment)
+        if re_match is not None:
+            return re_match.group(0)
+        else:
+            continue
+
     # Remove common error of first character being a punctuation mark:
     if email_in.lstrip()[0] in string.punctuation:
         email_in = email_in.lstrip()[1:]
