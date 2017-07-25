@@ -56,7 +56,7 @@ def get_valuation(ticker, minority_discount=0.2):
     # graham
     _key_metrics['graham_value'] = (_stock_reference['Diluted EPS Incl Extra Items'] *
                                     (8.5 + (2 * (_stock_reference['LT EPS Growth Rate']))) * 4.4) / \
-                                   ((float(get_corporate_rates()['Yield'].iloc[0].split('%')[0]) / 100) * 100)
+                                   (get_corporate_rates()['Yield'].iloc[0] * 100)
     _key_metrics['graham_safety'] = 1 - (_key_metrics['current_price'] / _key_metrics['graham_value'])
 
     # Rate lookups
@@ -163,6 +163,7 @@ def get_corporate_rates():
             row_list.append(col.text)
         df_lists.append(row_list)
     df = pd.DataFrame(df_lists, columns=df_columns)
+    df['Yield'] = pd.to_numeric(df['Yield'].map(lambda x: x.rstrip('%')), errors='coerce') / 100
     return df
 
 
@@ -182,7 +183,7 @@ def get_fed_rates():
     df = pd.DataFrame(df_lists, columns=df_columns)
     df.Date = pd.to_datetime(df.Date)
     for col in df_columns[1:]:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
+        df[col] = pd.to_numeric(df[col], errors='coerce')/100
     return df
 
 
