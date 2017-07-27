@@ -4,7 +4,7 @@ import os
 import string
 import re
 import pandas as pd
-from jellyfish import levenshtein_distance
+from nltk.metrics import edit_distance
 from .utils import validate_str
 from .distribute_processing import multiprocess_function
 
@@ -59,7 +59,7 @@ def fix_bsa_email(email_in, domains = None):
             # split user input on the '@' character, length must be 2
             _split = email_in.split('@')
             if len(_split) == 2:
-                domains['repl_proba'] = (domains['probability']) / (domains['domain'].apply(levenshtein_distance,
+                domains['repl_proba'] = (domains['probability']) / (domains['domain'].apply(edit_distance,
                                                                                             s2 = _split[1])**2.71828)
                 best_alt_domain = domains.sort_values(by='repl_proba', ascending = False).iloc[0]['domain']
 
