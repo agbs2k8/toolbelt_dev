@@ -13,7 +13,7 @@ __location__ = os.path.realpath(
 
 
 @validate_str
-def fix_bsa_email(email_in, domains = None):
+def fix_bsa_email(email_in, domains=None):
     """Read and correct the various common errors of emails in the BSA servers"""
 
     # Only work with lower-case emails
@@ -26,17 +26,21 @@ def fix_bsa_email(email_in, domains = None):
     if re.match(regex, email_in):
         return email_in
 
+    # check and see if there are possibly multiple emails or otherwise multiple sections, one of which is an email
     email_segments = email_in.split()
     for segment in email_segments:
-        re_match=re.search(regex,segment)
+        re_match = re.search(regex, segment)
         if re_match is not None:
             return re_match.group(0)
         else:
             continue
 
-    # Remove common error of first character being a punctuation mark:
+    # Try removal of first character, that commonly being a punctuation mark:
     if email_in.lstrip()[0] in string.punctuation:
-        email_in = email_in.lstrip()[1:]
+        re_match = re.search(regex, email_in.lstrip()[1:])
+        if re_match is not None:
+            if re.match(regex, re_match.group(0)):
+                return re_match.group(0)
 
     # if a valid email address can be found within the string:
     re_match = re.search(regex, email_in)
@@ -54,7 +58,7 @@ def fix_bsa_email(email_in, domains = None):
         else:
             # retrieve list of domains from cwd to compare
             if domains is None:
-                domains = pd.read_pickle(os.path.join(__location__,"domains.pickle"))
+                domains = pd.read_pickle(os.path.join(__location__, "domains.pickle"))
 
             # split user input on the '@' character, length must be 2
             _split = email_in.split('@')
@@ -65,7 +69,8 @@ def fix_bsa_email(email_in, domains = None):
 
                 # if changing domain did not suffice to fix the problem, do not return the new domain
                 if re.match(regex, _split[0]+"@"+best_alt_domain):
-                    return _split[0]+"@"+best_alt_domain
+                    if edit_distance(email_in, (_split[0]+"@"+best_alt_domain)) < 4:
+                        return _split[0]+"@"+best_alt_domain
     return None
 
 
