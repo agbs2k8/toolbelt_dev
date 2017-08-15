@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from functools import wraps
+import pandas as pd
 
 
 def validate_df(func):
@@ -11,7 +12,7 @@ def validate_df(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if isinstance(args[0], pd.DataFrame):
-            return func(*args,**kwargs)
+            return func(*args, **kwargs)
         else:
             raise TypeError('This tool only supports input as a DataFrame')
     return wrapper

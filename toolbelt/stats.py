@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 # from statsmodels.tsa.stattools import adfuller
-from .utils import validate_df
+# from .utils import validate_df
 
 
 def visualize_distribution(df):
@@ -44,7 +44,7 @@ def visualize_distribution(df):
     plt.show()
 
 
-@validate_df
+# @validate_df
 def test_stationarity(timeseries, periods=12, df_test=True):
     # Determing rolling statistics
     rolmean = timeseries.rolling(center=False, window=periods).mean()
@@ -71,3 +71,34 @@ def test_stationarity(timeseries, periods=12, df_test=True):
             dfoutput['Critical Value (%s)' % key] = value
         print(dfoutput)
     """
+
+
+def sigmoid(z):
+    return 1/(1+np.exp(-z))
+
+
+def linreg_cost(X, y, theta):
+    return 1/(2*len(y))*np.sum(((X.dot(theta))-y)**2)
+
+
+def linreg_reg_cost(X, y, theta, l):
+    return (1 / (2 * len(y)) * np.sum((((X.dot(theta)) - y) ** 2) + (0.5 * sum(theta[1:] ** 2))))
+
+
+def linreg(X, y, l=0, regularize = False):
+    if not (np.shape(X) != (len(X),) and sum(X[:, 0]) == len(X)):
+        X = np.column_stack((np.array([1 for x in range(len(X))]), X))
+
+    if not regularize:
+        theta = np.linalg.pinv(X.transpose().dot(X)).dot((X.transpose().dot(y)))
+        cost = linreg_reg_cost(X, y, theta, l)
+        return theta, cost
+    else:
+        li = np.identity(X.shape[1]) * l
+        li[0, 0] = 0
+
+        theta = np.dot((np.linalg.pinv(np.dot(X.transpose(), X) + li)), (np.dot(X.transpose(), y)))
+
+        cost = linreg_cost(X, y, theta)
+
+        return theta, cost

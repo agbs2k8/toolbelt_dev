@@ -7,6 +7,6 @@ __version__ = '0.0.3'
 __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
-from .stats import visualize_distribution, test_stationarity
+from .stats import visualize_distribution, test_stationarity, sigmoid, linreg
 from .bsa import fix_bsa_email, multiprocess_fix_emails
 from .finance import get_valuation, get_current, export_valuation
