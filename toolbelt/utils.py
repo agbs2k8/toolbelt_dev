@@ -44,3 +44,16 @@ def validate_str(func):
 #        else:
 #            raise TypeError('This tool only supports input as a list')
 #    return wrapper
+
+
+def quicksort(xs):
+	if not xs:
+		return []
+
+    #pivots = [x for x in xs if x==xs[0]]
+    #lesser = quicksort([x for x in xs if x < xs[0]])
+    #greater = quicksort([x for x in xs if x > xs[0]])
+
+    #return lesser + pivots + greater
+
+	return quicksort([x for x in xs if x < xs[0]]) + [x for x in xs if x==xs[0]] + quicksort([x for x in xs if x > xs[0]])
