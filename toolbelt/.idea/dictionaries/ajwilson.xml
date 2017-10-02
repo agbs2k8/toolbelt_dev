@@ -3,7 +3,10 @@
     <words>
       <w>ebitda</w>
       <w>linreg</w>
+      <w>ngram</w>
+      <w>nltk</w>
       <w>proj</w>
+      <w>stemmer</w>
       <w>subtable</w>
     </words>
   </dictionary>
