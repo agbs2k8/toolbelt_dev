@@ -43,6 +43,8 @@ def visualize_distribution(df):
 
     plt.show()
 
+    return(fig)
+
 
 # @validate_df
 def test_stationarity(timeseries, periods=12, df_test=True):
