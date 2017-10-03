@@ -8,9 +8,10 @@ from .utils import validate_str
 
 
 my_stopwords = stopwords.words('english') 
-stemmer = nltk.stem.porter.SnowballStemmer()
+stemmer = nltk.stem.snowball.SnowballStemmer('english')
 
 
+@validate_str
 def remove_punctuation(text):
     """
     Simple function that will take a string or list of strings, and return them in the 
