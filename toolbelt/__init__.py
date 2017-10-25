@@ -3,7 +3,7 @@ import os
 
 __author__ = """AJ Wilson"""
 __email__ = """aj.wilson08@gmail.com"""
-__version__ = '0.0.4'
+__version__ = '0.0.5'
 __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
