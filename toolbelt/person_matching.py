@@ -32,6 +32,8 @@ def find_matches(_df):
     """
     _df['Male'] = _df.Gender.apply(lambda x: True if x == 'M' else (False if x == 'F' else None))
     _df = _df.drop(labels=['Gender'], axis=1).dropna(subset=['Zip5', 'DateOfBirth', 'Male']).drop_duplicates()
+    _df = _df[['SKPersonID', 'FirstName', 'MiddleName', 'LastName', 'DateOfBirth', 'AddressLine1', 'AddressLine2',
+               'City', 'State', 'Zip5', 'Male']]
 
     clusters = _df.groupby(['Zip5', 'Male', 'DateOfBirth'])[['SKPersonID']].count().sort_values(by='SKPersonID',
                                                                                                 ascending=True)
