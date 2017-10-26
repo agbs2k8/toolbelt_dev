@@ -11,12 +11,13 @@ _abbreviations = pickle.load(open(os.path.join(__location__, '_address_abbreviat
 state_abbreviations = pickle.load(open(os.path.join(__location__, '_state_abbreviations.pkl'), 'rb'))
 
 
-@validate_str
+
 def fill_zip(orig):
     """
     :param orig: zip code as text, potentially missing leading 0's
     :return: recursively filled ZIP with leading 0's
     """
+    orig = str(orig)
     if len(orig) < 5:
         return fill_zip('0'+orig)
     else:
