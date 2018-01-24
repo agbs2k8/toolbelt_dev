@@ -50,9 +50,9 @@ def numeric_abbreviation(in_text):
         std_street.append('HUNDRED')
 
         if float(number) % 10 == 0:
-            std_street.append(_abbreviations[number[-2]][1])
+            std_street.append(_abbreviations[number[-2:]][1])
         elif float(number[-2:]) < 20:
-            std_street.append(_abbreviations[number][1])
+            std_street.append(_abbreviations[str(int(number[-2:]))][1])
         else:
             std_street.append(_abbreviations[number[-2]+"0"][0])
             std_street.append(_abbreviations[number[-1]][1])
