@@ -11,13 +11,12 @@ _abbreviations = pickle.load(open(os.path.join(__location__, '_address_abbreviat
 state_abbreviations = pickle.load(open(os.path.join(__location__, '_state_abbreviations.pkl'), 'rb'))
 
 
-
+@validate_str
 def fill_zip(orig):
     """
     :param orig: zip code as text, potentially missing leading 0's
     :return: recursively filled ZIP with leading 0's
     """
-    orig = str(orig)
     if len(orig) < 5:
         return fill_zip('0'+orig)
     else:
@@ -36,21 +35,21 @@ def numeric_abbreviation(in_text):
         if re.match('[0-9]', in_text[x]) is not None:
             number = number+in_text[x]
     if len(number) == 1:
-        std_street.append(_abbreviations[number][1])
+        std_street.append(_abbreviations[str(int(number))][1])
     elif len(number) == 2:
         if number[-1] == '0':
-            std_street.append(_abbreviations[number][1])
+            std_street.append(_abbreviations[str(int(number))][1])
         elif int(number) < 20:
-            std_street.append(_abbreviations[number][1])
+            std_street.append(_abbreviations[str(int(number))][1])
         else:
-            std_street.append(_abbreviations[number[0]+"0"][0])
-            std_street.append(_abbreviations[number[1]][1])
+            std_street.append(_abbreviations[str(int(number[0]))+"0"][0])
+            std_street.append(_abbreviations[str(int(number[1]))][1])
     elif len(number) == 3:
         std_street.append(_abbreviations[number[0]][0])
         std_street.append('HUNDRED')
 
         if float(number) % 10 == 0:
-            std_street.append(_abbreviations[number[-2:]][1])
+            std_street.append(_abbreviations[str(int(number[-2:]))][1])
         elif float(number[-2:]) < 20:
             std_street.append(_abbreviations[str(int(number[-2:]))][1])
         else:
