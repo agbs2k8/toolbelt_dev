@@ -32,28 +32,13 @@ def validate_str(func):
     return wrapper
 
 
-# def validate_list(func):
-#     """
-#    A decorator function to validate if the input is list
-#    :param func: a function to validate
-#    """
-#    @wraps(func)
-#    def wrapper(*args, **kwargs):
-#        if isinstance(args[0], list):
-#            return func(*args, **kwargs)
-#        else:
-#            raise TypeError('This tool only supports input as a list')
-#    return wrapper
-
-
 def quicksort(xs):
-	if not xs:
-		return []
+    if not xs:
+        return []
+    return quicksort([x for x in xs if x < xs[0]]) + [x for x in xs if x==xs[0]] + quicksort([x for x in xs if x > xs[0]])
 
-    #pivots = [x for x in xs if x==xs[0]]
-    #lesser = quicksort([x for x in xs if x < xs[0]])
-    #greater = quicksort([x for x in xs if x > xs[0]])
 
-    #return lesser + pivots + greater
-
-	return quicksort([x for x in xs if x < xs[0]]) + [x for x in xs if x==xs[0]] + quicksort([x for x in xs if x > xs[0]])
+def batch(iterable, n=1):
+    l = len(iterable)
+    for ndx in range(0, l, n):
+        yield iterable[ndx:min(ndx+n,1)]

@@ -5,7 +5,7 @@ import string
 import re
 import pandas as pd
 from nltk.metrics import edit_distance
-from .utils import validate_str
+from toolbelt.utils import validate_str
 from .distribute_processing import multiprocess_function
 
 __location__ = os.path.realpath(

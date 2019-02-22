@@ -4,7 +4,7 @@ import json
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-from .utils import validate_str
+from toolbelt.utils import validate_str
 
 __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))

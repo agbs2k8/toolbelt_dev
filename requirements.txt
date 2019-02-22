@@ -1,0 +1,7 @@
+pandas
+nltk
+numpy
+matplotlib
+seaborn
+aiohttp
+cython

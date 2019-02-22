@@ -1,8 +1,8 @@
 import os
 import re
 import pickle
-from .utils import validate_str
-from .nlp_tools import remove_punctuation
+from toolbelt.utils import validate_str
+from toolbelt.nlp_tools import remove_punctuation
 
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
