@@ -2,6 +2,7 @@
 
 import pandas as pd
 import numpy as np
+from scipy.spatial import distance
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -102,3 +103,32 @@ def linreg(X, y, l=0, regularize = False):
         cost = linreg_cost(X, y, theta)
 
         return theta, cost
+
+
+def bic(kmeans, X: np.array) -> np.float:
+    """
+    Bayesian Information Criterion for clusters
+    :param kmeans: fitted kmeans clustering object
+    :param X: numpy array of original X values that were used to fit kmeans
+    :return: float BIC
+    """
+    # assign centers and labels
+    centers = [kmeans.cluster_centers_]
+    labels = kmeans.labels_
+    # number of clusters
+    m = kmeans.n_clusters
+    # size of the clusters
+    n = np.bincount(labels)
+    # size of data set
+    N, d = X.shape
+
+    # compute variance for all clusters beforehand
+    cl_var = (1.0 / (N - m) / d) * sum([sum(distance.cdist(X[np.where(labels == i)], [centers[0][i]],
+                                                           'euclidean') ** 2) for i in range(m)])
+    const_term = 0.5 * m * np.log(N) * (d + 1)
+    _bic = np.sum([n[i] * np.log(n[i]) -
+                  n[i] * np.log(N) -
+                  ((n[i] * d) / 2) * np.log(2 * np.pi * cl_var) -
+                  ((n[i] - 1) * d / 2) for i in range(m)]) - const_term
+
+    return _bic

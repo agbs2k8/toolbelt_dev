@@ -39,6 +39,5 @@ def quicksort(xs):
 
 
 def batch(iterable, n=1):
-    l = len(iterable)
-    for ndx in range(0, l, n):
-        yield iterable[ndx:min(ndx+n,1)]
+    for ndx in range(0, len(iterable), n):
+        yield iterable[ndx:min(ndx+n, 1)]
