@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+Notes on how to import from the github tracked directory:
+    sys.path.append('/Users/ajwilson/GitRepos/toolbelt_dev/')
+    from toolbelt.stats import *
+"""
 import math
 from collections import Counter
 import pandas as pd

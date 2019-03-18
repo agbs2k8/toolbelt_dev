@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="76545856-0599-409a-a5a7-bf64de4ae361" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/dictionaries/ajwilson.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dictionaries/ajwilson.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/toolbelt/stats.py" beforeDir="false" afterPath="$PROJECT_DIR$/toolbelt/stats.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -31,8 +30,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/toolbelt/stats.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="681">
-              <caret line="230" column="14" lean-forward="true" selection-start-line="230" selection-start-column="14" selection-end-line="230" selection-end-column="14" />
+            <state relative-caret-position="45">
+              <caret line="3" column="31" selection-start-line="3" selection-start-column="31" selection-end-line="3" selection-end-column="31" />
               <folding>
                 <element signature="e#24#30#0" expanded="true" />
               </folding>
@@ -196,12 +195,12 @@
       <workItem from="1551384953604" duration="2061000" />
       <workItem from="1551387383548" duration="11029000" />
       <workItem from="1552056424046" duration="400000" />
-      <workItem from="1552662763712" duration="584000" />
+      <workItem from="1552662763712" duration="830000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="14511000" />
+    <option name="totallyTimeSpent" value="14757000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="255" y="-977" width="1506" height="925" extended-state="0" />
@@ -296,8 +295,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/toolbelt/stats.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="681">
-          <caret line="230" column="14" lean-forward="true" selection-start-line="230" selection-start-column="14" selection-end-line="230" selection-end-column="14" />
+        <state relative-caret-position="45">
+          <caret line="3" column="31" selection-start-line="3" selection-start-column="31" selection-end-line="3" selection-end-column="31" />
           <folding>
             <element signature="e#24#30#0" expanded="true" />
           </folding>
