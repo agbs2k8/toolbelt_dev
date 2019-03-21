@@ -49,7 +49,7 @@ def visualize_distribution(df):
 
     plt.show()
 
-    return(fig)
+    return fig
 
 
 # @validate_df
