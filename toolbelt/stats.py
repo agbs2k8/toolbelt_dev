@@ -9,7 +9,7 @@ from collections import Counter
 import pandas as pd
 import numpy as np
 from scipy.spatial import distance
-import scipy.stats as stats
+import scipy.stats as stat
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -151,7 +151,7 @@ def cramer_v(x: np.array, y: np.array) -> np.float:
     # Count of values by each intersection of categorical features
     confusion_matrix = pd.crosstab(x, y)
     # chi2 stat for the hypothesis test of independence of the observed frequencies
-    chi2 = stats.chi2_contingency(confusion_matrix)[0]
+    chi2 = stat.chi2_contingency(confusion_matrix)[0]
     # total # of observations
     n = confusion_matrix.sum().sum()
     phi2 = chi2 / n
@@ -196,7 +196,7 @@ def theil_u(x: np.array, y: np.array) -> np.float:
     x_counter = Counter(x)
     total_occurrences = sum(x_counter.values())
     p_x = list(map(lambda n: n / total_occurrences, x_counter.values()))
-    s_x = stats.entropy(p_x)
+    s_x = stat.entropy(p_x)
     if s_x == 0:
         return 1
     else:
