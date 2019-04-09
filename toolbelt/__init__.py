@@ -10,5 +10,6 @@ __location__ = os.path.realpath(
 from .stats import visualize_distribution, test_stationarity, bic, cramer_v, theil_u, corr_ratio
 from .utils import quicksort, batch, window
 from .web_tools import scrape_links_from_url, scrape_links_from_urls
+from .process_trees import Host, Tree, Node
 #from .nlp_tools import remove_punctuation, remove_digits, tokenize_and_stem, tokenize_only, n_grams, sentences
 

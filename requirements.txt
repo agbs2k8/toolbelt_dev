@@ -6,3 +6,4 @@ seaborn
 aiohttp
 cython
 scipy
+networkx
