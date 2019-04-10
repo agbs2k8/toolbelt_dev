@@ -5,9 +5,13 @@
       <w>cramer</w>
       <w>delim</w>
       <w>fcat</w>
+      <w>figsize</w>
+      <w>guids</w>
       <w>kcorr</w>
       <w>kmeans</w>
       <w>linreg</w>
+      <w>matplotlib</w>
+      <w>networ</w>
       <w>quicksort</w>
       <w>rcorr</w>
       <w>theil</w>

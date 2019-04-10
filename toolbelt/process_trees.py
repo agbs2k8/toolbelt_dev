@@ -6,6 +6,9 @@ Notes on how to import from the github tracked directory:
     sys.path.append('/Users/ajwilson/GitRepos/toolbelt_dev/')
     from toolbelt.process_tress import Host, Tree, Node
 """
+# TODO: Re-write Tree & Node to generic & subclass process Tree & Process Node
+#   This would be useful if I want to use the tree/node pieces again in the future but not have to deal with
+#   conflicts regarding the naming/process specific pieces
 
 
 class Host:
@@ -112,17 +115,19 @@ class Tree:
         """
         return self.nodes[node_guid]
 
-    def append_node(self, guid, proc_name, parent_guid=None, ignore_structure=False) -> None:
+    def append_node(self, guid, proc_name, timestamp=None, proc_path=None, parent_guid=None, ignore_structure=False):
         """
         Adds a new node at end of the tree; assumes it is the master node or already has a parent
         :param guid: GUID of the node to add
         :param proc_name: process name for the node we're adding
+        :param timestamp: a valid date-time object of when the process was created
+        :param proc_path: the full text of the path to the file
         :param parent_guid: GUID of the parent process already in the tree
         :param ignore_structure: if True it will skip checking the tree's structure once the node is added
         """
         # make sure the node isn't in the dict of nodes, and add it
         if guid not in self.nodes.keys():
-            new_node = Node(guid, proc_name, self)
+            new_node = Node(guid=guid, proc_name=proc_name, tree=self, timestamp=timestamp, proc_path=proc_path)
             self.nodes[guid] = new_node
         else:  # if the node already exists, raise an error
             raise ValueError('That node already exists.')
@@ -137,17 +142,19 @@ class Tree:
         if not ignore_structure and len(self.nodes.keys()) > 1:
             self.check_tree()
 
-    def push_node(self, guid, proc_name, children_guids=(), ignore_structure=False) -> None:
+    def push_node(self, guid, proc_name, timestamp=None, proc_path=None, children_guids=(), ignore_structure=False):
         """
         Add a new parent node to the structure, needs to be setting the master node as a child, otherwise it will break
         the tree structure and trip an error
         :param guid: GUID of new node
         :param proc_name: process name for the new node
+        :param timestamp: a valid date-time object of when the process was created
+        :param proc_path: the full text of the path to the file
         :param children_guids: child node(s) to link to.  Needs to contain the master node...
         :param ignore_structure: if True it will skip checking the tree's structure once the node is added
         """
         if guid not in self.nodes.keys():
-            new_node = Node(guid, proc_name, self)
+            new_node = Node(guid=guid, proc_name=proc_name, tree=self, timestamp=timestamp, proc_path=proc_path)
             self.nodes[guid] = new_node
         else:
             raise ValueError('That node already exists')
@@ -163,6 +170,7 @@ class Tree:
         """
         Ensure that we still have a valid tree structure with only 1 trunk/origin node shared by all other nodes
         Also, set the tree's starting_node value, once validated, in case it is not yet defined or has changed
+        TODO: Look more into Graph Isomorphism algorithms
         """
         trunk = None
         is_valid = False
@@ -181,6 +189,9 @@ class Tree:
         if not is_valid:
             raise ValueError('Incorrect tree structure.')
         self.starting_node = trunk
+
+    # TODO def has_subtree(self, other):  Where self does/doesn't contain a given subtree (other)
+    # TODO def is_subtree(self, other): Where self is a subtree of other
 
     def get_leafs(self):
         """
@@ -224,7 +235,7 @@ class Tree:
     def to_graph(self):
         """
         Create NetworkX Directed Graph of the tree.  Nodes tracked by GUID
-        :return: NetworX DiGraph obj
+        :return: NetworkX DiGraph obj
         """
         g = nx.DiGraph()
         g.add_nodes_from([node.guid for node in self.get_node_list()])
@@ -237,6 +248,9 @@ class Tree:
         :param horizontal: by default it plots left/right, if False it flips to plot up/down
         :return: dict of {node_guid: [x,y], ...}
         """
+        # TODO: Create option to change x (layer) value to something based on timestamps
+        #   Will need substantial logic to handle overlapping times & large time-lapses between nodes
+        #   Extend out layers - set in layers, add layers if the times do not match
         self.max_depth = self.get_depth()
         leafs = self.get_leafs()
         self.max_width = len(leafs)
@@ -315,16 +329,21 @@ class Tree:
 
 
 class Node:
-    def __init__(self, guid, proc_name, tree):
-        self.guid = guid
+    """
+    A node is a single instance of a process.  It can have only 1 parent (not required) but n children.
+    """
+    def __init__(self, guid, proc_name, tree, timestamp=None, proc_path=None):
+        self.guid = str(guid)
         self.parent = None
         self.children = []
-        self.process_name = proc_name
+        self.process_name = str(proc_name)
         self.Tree = tree
+        self.proc_path = str(proc_path)
+        self.timestamp = self.fix_date(timestamp)
 
     def __repr__(self):
-        return f"<Instance of the process '{self.process_name}' with GUID: '{self.guid}' in '{self.Tree.Host.name}' " \
-            f"tree '{self.Tree.tree_num}'.>"
+        return f"<'{self.process_name}'- GUID: '{self.guid}' @ {self.timestamp}- '{self.Tree.Host.name}' - tree " \
+            f"'{self.Tree.tree_num}'.>"
 
     def __eq__(self, other):
         if self.process_name == other.process_name:
@@ -334,6 +353,20 @@ class Node:
 
     def __hash__(self):
         return hash(self.guid)
+
+    @staticmethod
+    def fix_date(passed_date):
+        """
+        Uses Numpy datetime64 declaration to validate and standardize dates.  If it throws an error for numpy, it will
+        here too - I only added handling for null values to keep as None rather than 'NaT'
+        :param passed_date: the date from input
+        :return: a np.datetime64 time or None
+        """
+        clean_date = np.datetime64(passed_date)
+        if not np.isnat(clean_date):
+            return np.datetime64(passed_date)
+        else:
+            return None
 
     def find_and_set_parent(self, parent_guid):
         self.parent = self.Tree.find_node(parent_guid)
@@ -360,6 +393,18 @@ class Node:
     def iter_child(self):
         for child in self.children:
             yield child
+
+    def get_time(self):
+        return self.timestamp
+
+    def set_time(self, timestamp):
+        self.timestamp = self.fix_date(timestamp)
+
+    def get_path(self):
+        return self.proc_path
+
+    def set_path(self, path: str):
+        self.proc_path = path
 
     def get_trunk_node(self):
         """
