@@ -1,5 +1,6 @@
-import numpy as np
+import json
 import hashlib
+import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 
@@ -42,6 +43,35 @@ class Tree:
                 return self.starting_node.get_branch_to_leaf()
             else:
                 raise ValueError('Cannot find starting node; check that nodes exists.')
+
+    def get_layers(self):
+        num_layers = self.get_depth()
+        layers = [[self.starting_node]]
+        for i in range(num_layers-1):
+            new_layer = []
+            for node in layers[i]:
+                new_layer += node.get_children()
+            layers.append(new_layer)
+        return layers
+
+    def to_dict(self):
+        ret_val = {'tree_id': self.tree_id}
+        layers = self.get_layers()
+        layers_dict = dict()
+        for layer_idx, layer in enumerate(layers):
+            layer_dict = dict()
+            for node_idx, node in enumerate(layer):
+                layer_dict[node_idx] = node.to_dict()
+            layers_dict[layer_idx] = layer_dict
+        ret_val['nodes'] = layers_dict
+        return ret_val
+
+    def to_json(self, filepath=None):
+        if not filepath:
+            return json.dumps(self.to_dict(), indent=4)
+        else:
+            with open(filepath, 'w') as f:
+                json.dump(self.to_dict(), f, indent=4)
 
     def find_node(self, node_id):
         """
@@ -99,6 +129,18 @@ class Tree:
         # Make sure that the node we added did not break the tree structure into multiple trees
         if not ignore_structure and len(self.nodes.keys()) > 1:
             self.check_tree()
+
+    def delete_node(self, node):
+        if not isinstance(node, Node) and isinstance(node, str):
+            node = self.find_node(node)
+        parent = node.get_parent()
+        if parent:
+            parent.children.remove(node)
+        if len(node.get_children()) > 0:
+            for child in node.iter_child():
+                child.set_parent(None)
+        self.nodes = {_id: _node for _id, _node in self.nodes.items() if _id != node.node_id}
+        self.check_tree()
 
     def check_tree(self):
         """
@@ -208,6 +250,16 @@ class Tree:
         """
         return {node_id: node.name for node_id, node in self.nodes.items()}
 
+    @staticmethod
+    def fix_plot_ratios(max_x, max_y):
+        ratio = max_x / max_y
+        if ratio < 1:
+            return max_x, max_x
+        elif ratio > (5/3):
+            return max_x, (3/5)*max_x
+        else:
+            return max_x, max_y
+
     def plot(self, figsize=None, save_path=None, horizontal=True):
         """
         Create Matplotlib Figure of the graph
@@ -220,15 +272,13 @@ class Tree:
         if horizontal:
             pos = self.make_layout()
             if not figsize:
-                max_x = self.max_depth * 3
-                max_y = self.max_width * 3
+                max_x, max_y = self.fix_plot_ratios(self.max_depth*3, self.max_width*3)
             else:
                 max_x, max_y = figsize
         else:
             pos = self.make_layout(horizontal=False)
             if not figsize:
-                max_y = self.max_depth * 3
-                max_x = self.max_width * 3
+                max_y, max_x = self.fix_plot_ratios(self.max_depth*3, self.max_width*3)
             else:
                 max_x, max_y = figsize
 
@@ -247,10 +297,110 @@ class Tree:
                                 self.label_dict(),
                                 font_size=font_size)
         ax.axis('off')
-        ax.set_title(f'Plot of Tree: {self.tree_id}')
         if save_path:
             plt.savefig(save_path)
         return ax
+
+    def matches(self, other):
+        """
+        Compares two trees (this one to another) and makes sure that they have 1 common starting process (by name)
+        *not by ID*, makes sure they have the exact same set of leafs, and then compares all branches between the
+        leafs and the trunk to make sure they match
+        :param other: another tree to compare to
+        :return: True if the match, False if they are different
+        """
+        # TODO: Look more into Graph Isomorphism algorithms
+
+        # 0. Make sure we have a starting node:
+        self.check_tree()
+        if not self.starting_node:
+            return False
+        # 1. Make sure the trunk/origin process is the same for both
+        if self.starting_node.name != other.starting_node.name:
+            return False
+        # ...Now we compare the leafs...
+        my_leafs = self.get_leafs()
+        ot_leafs = other.get_leafs()
+        # 2. Make sure the set of leafs processes are the same
+        if set([leaf.name for leaf in my_leafs]) != set([leaf.name for leaf in ot_leafs]):
+            return False
+        # 3. compare the contents of each branch and make sure there is a matching one in each
+        my_branches = [[node.name for node in leaf.get_branch_to_trunk()] for leaf in my_leafs]
+        ot_branches = [[node.name for node in leaf.get_branch_to_trunk()] for leaf in ot_leafs]
+        while len(my_branches) > 0:
+            cur_branch = my_branches.pop()
+            if cur_branch in ot_branches:
+                ot_branches.remove(cur_branch)
+            else:
+                return False
+        # ... make sure there wasn't anything else left in the the other one.
+        if len(ot_branches) == 0:
+            return True
+        else:
+            return False
+
+    def subtree(self, starting_node):
+        """
+        Returns a duplicated tree of all branches from the given node
+        :param starting_node: either Node OBJ or node_id to look up and retrieve the node
+        :return: Tree
+        """
+        if isinstance(starting_node, str):
+            starting_node = self.find_node(starting_node)
+        new_tree = Tree()
+        starting_node.copy_to(new_tree, with_parent=False)
+        children = starting_node.get_children()
+        for _ in range(starting_node.subtree_depth()-1):
+            next_layer = []
+            for child in children:
+                child.copy_to(new_tree)
+                next_layer += child.get_children()
+            children = next_layer
+        return new_tree
+
+    def has_subtree(self, other):
+        first_proc_name = other.starting_node.name
+        prospects = [sub_start_node for _, sub_start_node in self.nodes.items() if
+                     sub_start_node.name == first_proc_name]
+        search_depth = other.get_depth()
+        # The other cannot be larger than I am
+        if self.get_depth() < search_depth:
+            return False
+        # Make sure the passed set is a subset of what I already have
+        elif not set([node.name for _, node in other.nodes.items()]).issubset(
+                set([node.name for _, node in self.nodes.items()])):
+            return False
+        # Make sure I have some processes that match the starting process name
+        elif len(prospects) < 1:
+            return False
+        # Now go through all of the prospective starting points...
+        else:
+            for prospect in prospects:
+                prospect_matched = True
+                pr_children = [x for x in prospect.get_children()]
+                ot_children = [x for x in other.starting_node.get_children()]
+                for i in range(search_depth - 1):
+                    # fill these for the next iteration as we go
+                    pr_next_layer = []
+                    ot_next_layer = []
+                    for ot_child in ot_children:
+                        ot_next_layer += ot_child.get_children()
+                        child_matched = False
+                        for pr_child in pr_children:
+                            if ot_child.name == pr_child.name and ot_child.parent.name == pr_child.parent.name:
+                                pr_children.remove(pr_child)
+                                pr_next_layer += pr_child.get_children()
+                                child_matched = True
+                        if not child_matched:
+                            prospect_matched = False
+                    pr_children = pr_next_layer
+                    ot_children = ot_next_layer
+                if prospect_matched:
+                    return True
+        return False
+
+    def is_subtree(self, other):
+        return other.has_subtree(self)
 
 
 class Node:
@@ -280,6 +430,30 @@ class Node:
 
     def __hash__(self):
         return hash(self.name)
+
+    def copy_to(self, new_tree, with_parent=True):
+        if with_parent:
+            new_tree.append_node(node_id=self.node_id, name=self.name, parent_id=self.parent.node_id)
+        else:
+            new_tree.append_node(node_id=self.node_id, name=self.name, parent_id=None)
+
+    def to_dict(self):
+        ret_val = {'node_id': self.node_id, 'name': self.name, 'tree_id': self.Tree.tree_id}
+        if self.parent:
+            ret_val['parent'] = self.parent.node_id
+        if len(self.children) > 0:
+            child_dict = dict()
+            for idx, child in enumerate(self.iter_child()):
+                child_dict[idx] = child.node_id
+            ret_val['children'] = child_dict
+        return ret_val
+
+    def to_json(self, filepath=None):
+        if not filepath:
+            return json.dumps(self.to_dict(), indent=4)
+        else:
+            with open(filepath, 'w') as f:
+                json.dump(self.to_dict(), f, indent=4)
 
     def find_and_set_parent(self, parent_id):
         self.parent = self.Tree.find_node(parent_id)

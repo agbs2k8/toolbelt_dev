@@ -1,3 +1,5 @@
+import os
+import json
 import hashlib
 import numpy as np
 from .trees import Tree, Node
@@ -8,15 +10,39 @@ Notes on how to import from the github tracked directory:
 """
 
 
+def tree_from_json(filepath):
+    if not os.path.exists(filepath):
+        raise ValueError('The specified file path does not exist')
+    data = json.load(open(filepath))
+    new_tree = ProcessTree(tree_id=data['tree_id'])
+    num_layers = len(data['nodes'].keys())
+    for layer in range(num_layers):
+        layer_data = data['nodes'][str(layer)]
+        for _, node in layer_data.items():
+            parent_id = path = time = None
+            if 'parent' in node.keys():
+                parent_id = node['parent']
+            if 'proc_path' in node.keys():
+                path = node['proc_path']
+            if 'timestamp' in node.keys():
+                time = node['timestamp']
+            new_tree.append_proc(guid=node['node_id'],
+                                 proc_name=node['name'],
+                                 parent_guid=parent_id,
+                                 timestamp=time,
+                                 proc_path=path)
+    return new_tree
+
+
 class Host:
     """
     Hosts are the individual computers that I want to create 1 or more process trees for.  They store common information
     about the machine and a list of the trees contained within it.
     """
-    def __init__(self, name, os=None, ip='x.x.x.x', env=None):
+    def __init__(self, name, operating_system=None, ip='x.x.x.x', env=None):
         self.host_id = self.make_id()
         self.name = name
-        self.os = os
+        self.os = operating_system
         self.ip = ip
         self.env = env
         self.process_trees = {}
@@ -63,43 +89,26 @@ class ProcessTree(Tree):
     def __str__(self):
         return f"Process Tree for host {self.Host} with {len(self.nodes.keys())} nodes."
 
-    def matches(self, other):
-        """
-        Compares two trees (this one to another) and makes sure that they have 1 common starting process (by proc_name)
-        *not by GUID*, makes sure they have the exact same set of leafs, and then compares all branches between the
-        leafs and the trunk to make sure they match
-        :param other: another tree to compare to
-        :return: True if the match, False if they are different
-        """
-        # TODO: Look more into Graph Isomorphism algorithms
+    def to_dict(self):
+        ret_val = {'tree_id': self.tree_id}
+        if self.Host:
+            ret_val['host'] = self.Host.name
+        layers = self.get_layers()
+        layers_dict = dict()
+        for layer_idx, layer in enumerate(layers):
+            layer_dict = dict()
+            for node_idx, node in enumerate(layer):
+                layer_dict[node_idx] = node.to_dict()
+            layers_dict[layer_idx] = layer_dict
+        ret_val['nodes'] = layers_dict
+        return ret_val
 
-        # 0. Make sure we have a starting node:
-        self.check_tree()
-        if not self.starting_node:
-            return False
-        # 1. Make sure the trunk/origin process is the same for both
-        if self.starting_node.name != other.starting_node.name:
-            return False
-        # ...Now we compare the leafs...
-        my_leafs = self.get_leafs()
-        ot_leafs = other.get_leafs()
-        # 2. Make sure the set of leafs processes are the same
-        if set([leaf.name for leaf in my_leafs]) != set([leaf.name for leaf in ot_leafs]):
-            return False
-        # 3. compare the contents of each branch and make sure there is a matching one in each
-        my_branches = [[node.name for node in leaf.get_branch_to_trunk()] for leaf in my_leafs]
-        ot_branches = [[node.name for node in leaf.get_branch_to_trunk()] for leaf in ot_leafs]
-        while len(my_branches) > 0:
-            cur_branch = my_branches.pop()
-            if cur_branch in ot_branches:
-                ot_branches.remove(cur_branch)
-            else:
-                return False
-        # ... make sure there wasn't anything else left in the the other one.
-        if len(ot_branches) == 0:
-            return True
+    def to_json(self, filepath=None):
+        if not filepath:
+            return json.dumps(self.to_dict(), indent=4)
         else:
-            return False
+            with open(filepath, 'w') as f:
+                json.dump(self.to_dict(), f, indent=4)
 
     def append_proc(self, guid, proc_name, parent_guid=None, timestamp=None, proc_path=None, ignore_structure=False):
         """
@@ -152,9 +161,6 @@ class ProcessTree(Tree):
         if not ignore_structure and len(self.nodes.keys()) > 1:
             self.check_tree()
 
-    # TODO def has_subtree(self, other):  Where self does/doesn't contain a given subtree (other)
-    # TODO def is_subtree(self, other): Where self is a subtree of other
-
 
 class Process(Node):
     """
@@ -190,6 +196,19 @@ class Process(Node):
             return np.datetime64(passed_date)
         else:
             return None
+
+    def to_dict(self):
+        ret_val = Node.to_dict(self)
+        ret_val['proc_path'] = self.proc_path
+        ret_val['timestamp'] = str(self.timestamp)
+        return ret_val
+
+    def to_json(self, filepath=None):
+        if not filepath:
+            return json.dumps(self.to_dict(), indent=4)
+        else:
+            with open(filepath, 'w') as f:
+                json.dump(self.to_dict(), f, indent=4)
 
     def get_time(self):
         return self.timestamp
