@@ -556,3 +556,27 @@ class Node:
                 if depth > max_depth:
                     max_depth = depth
             return max_depth + 1
+
+
+def read_tree(filepath=None, json_str=None, data_dict=None):
+    if filepath:
+        data = json.load(open(filepath))
+    elif json_str:
+        data = json.loads(json_str)
+    elif data_dict:
+        if isinstance(data_dict, dict):
+            data = data_dict
+    else:
+        raise ValueError('No valid data provided.')
+    new_tree = Tree(tree_id=data['tree_id'])
+    num_layers = len(data['nodes'].keys())
+    for layer in range(num_layers):
+        layer_data = data['nodes'][str(layer)]
+        for _, node in layer_data.items():
+            parent_id = None
+            if 'parent' in node.keys():
+                parent_id = node['parent']
+            new_tree.append_node(node_id=node['node_id'],
+                                 name=node['name'],
+                                 parent_id=parent_id)
+    return new_tree

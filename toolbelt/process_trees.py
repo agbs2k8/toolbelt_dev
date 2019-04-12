@@ -214,7 +214,7 @@ class Process(Node):
         self.proc_path = path
 
 
-def read_tree(filepath=None, json_str=None, data_dict=None, host=None):
+def read_process_tree(filepath=None, json_str=None, data_dict=None, host=None):
     if filepath:
         data = json.load(open(filepath))
     elif json_str:
