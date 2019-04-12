@@ -11,6 +11,6 @@ from .stats import visualize_distribution, test_stationarity, bic, cramer_v, the
 from .utils import quicksort, batch, window
 from .web_tools import scrape_links_from_url, scrape_links_from_urls
 from .trees import Tree, Node
-from .process_trees import ProcessTree, Process, Host, tree_from_json
+from .process_trees import ProcessTree, Process, Host, read_host, read_tree
 #from .nlp_tools import remove_punctuation, remove_digits, tokenize_and_stem, tokenize_only, n_grams, sentences
 

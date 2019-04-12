@@ -66,12 +66,12 @@ class Tree:
         ret_val['nodes'] = layers_dict
         return ret_val
 
-    def to_json(self, filepath=None):
+    def to_json(self, filepath=None, indent=4):
         if not filepath:
-            return json.dumps(self.to_dict(), indent=4)
+            return json.dumps(self.to_dict(), indent=indent)
         else:
             with open(filepath, 'w') as f:
-                json.dump(self.to_dict(), f, indent=4)
+                json.dump(self.to_dict(), f, indent=indent)
 
     def find_node(self, node_id):
         """
@@ -448,12 +448,12 @@ class Node:
             ret_val['children'] = child_dict
         return ret_val
 
-    def to_json(self, filepath=None):
+    def to_json(self, filepath=None, indent=4):
         if not filepath:
-            return json.dumps(self.to_dict(), indent=4)
+            return json.dumps(self.to_dict(), indent=indent)
         else:
             with open(filepath, 'w') as f:
-                json.dump(self.to_dict(), f, indent=4)
+                json.dump(self.to_dict(), f, indent=indent)
 
     def find_and_set_parent(self, parent_id):
         self.parent = self.Tree.find_node(parent_id)

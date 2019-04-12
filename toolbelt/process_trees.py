@@ -10,30 +10,6 @@ Notes on how to import from the github tracked directory:
 """
 
 
-def tree_from_json(filepath):
-    if not os.path.exists(filepath):
-        raise ValueError('The specified file path does not exist')
-    data = json.load(open(filepath))
-    new_tree = ProcessTree(tree_id=data['tree_id'])
-    num_layers = len(data['nodes'].keys())
-    for layer in range(num_layers):
-        layer_data = data['nodes'][str(layer)]
-        for _, node in layer_data.items():
-            parent_id = path = time = None
-            if 'parent' in node.keys():
-                parent_id = node['parent']
-            if 'proc_path' in node.keys():
-                path = node['proc_path']
-            if 'timestamp' in node.keys():
-                time = node['timestamp']
-            new_tree.append_proc(guid=node['node_id'],
-                                 proc_name=node['name'],
-                                 parent_guid=parent_id,
-                                 timestamp=time,
-                                 proc_path=path)
-    return new_tree
-
-
 class Host:
     """
     Hosts are the individual computers that I want to create 1 or more process trees for.  They store common information
@@ -63,6 +39,21 @@ class Host:
         :param new_tree: the tree to add to the host's list of trees
         """
         self.process_trees[new_tree.tree_id] = new_tree
+
+    def to_dict(self):
+        ret_val = {'host_id': self.host_id, 'host_name': self.name, 'op_sys': self.os, 'ip': self.ip, 'env': self.env}
+        trees_dict = dict()
+        for tree_id, tree in self.process_trees.items():
+            trees_dict[tree_id] = tree.to_dict()
+        ret_val['trees'] = trees_dict
+        return ret_val
+
+    def to_json(self, filepath=None, indent=4):
+        if not filepath:
+            return json.dumps(self.to_dict(), indent=indent)
+        else:
+            with open(filepath, 'w') as f:
+                json.dump(self.to_dict(), f, indent=indent)
 
 
 class ProcessTree(Tree):
@@ -103,12 +94,12 @@ class ProcessTree(Tree):
         ret_val['nodes'] = layers_dict
         return ret_val
 
-    def to_json(self, filepath=None):
+    def to_json(self, filepath=None, indent=4):
         if not filepath:
-            return json.dumps(self.to_dict(), indent=4)
+            return json.dumps(self.to_dict(), indent=indent)
         else:
             with open(filepath, 'w') as f:
-                json.dump(self.to_dict(), f, indent=4)
+                json.dump(self.to_dict(), f, indent=indent)
 
     def append_proc(self, guid, proc_name, parent_guid=None, timestamp=None, proc_path=None, ignore_structure=False):
         """
@@ -203,12 +194,12 @@ class Process(Node):
         ret_val['timestamp'] = str(self.timestamp)
         return ret_val
 
-    def to_json(self, filepath=None):
+    def to_json(self, filepath=None, indent=4):
         if not filepath:
-            return json.dumps(self.to_dict(), indent=4)
+            return json.dumps(self.to_dict(), indent=indent)
         else:
             with open(filepath, 'w') as f:
-                json.dump(self.to_dict(), f, indent=4)
+                json.dump(self.to_dict(), f, indent=indent)
 
     def get_time(self):
         return self.timestamp
@@ -221,3 +212,51 @@ class Process(Node):
 
     def set_path(self, path: str):
         self.proc_path = path
+
+
+def read_tree(filepath=None, json_str=None, data_dict=None, host=None):
+    if filepath:
+        data = json.load(open(filepath))
+    elif json_str:
+        data = json.loads(json_str)
+    elif data_dict:
+        if isinstance(data_dict, dict):
+            data = data_dict
+    else:
+        raise ValueError('No valid data provided.')
+
+    new_tree = ProcessTree(tree_id=data['tree_id'], host=host)
+    num_layers = len(data['nodes'].keys())
+    for layer in range(num_layers):
+        layer_data = data['nodes'][str(layer)]
+        for _, node in layer_data.items():
+            parent_id = path = time = None
+            if 'parent' in node.keys():
+                parent_id = node['parent']
+            if 'proc_path' in node.keys():
+                path = node['proc_path']
+            if 'timestamp' in node.keys():
+                time = node['timestamp']
+            new_tree.append_proc(guid=node['node_id'],
+                                 proc_name=node['name'],
+                                 parent_guid=parent_id,
+                                 timestamp=time,
+                                 proc_path=path)
+    return new_tree
+
+
+def read_host(filepath=None, json_str=None):
+    if filepath:
+        data = json.load(open(filepath))
+    elif json_str:
+        data = json.loads(json_str)
+    else:
+        raise ValueError('No valid data provided.')
+
+    new_host = Host(name=data['host_id'],
+                    operating_system=data['op_sys'],
+                    ip=data['ip'],
+                    env=data['env'])
+    for _, tree in data['trees'].items():
+        read_tree(data_dict=tree, host=new_host)
+    return new_host
