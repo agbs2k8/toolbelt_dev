@@ -1,2 +1,3 @@
-import cython
+#!python
+#cython: language_level=3
 

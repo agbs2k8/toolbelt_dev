@@ -1,3 +1,5 @@
+#!python
+#cython: language_level=3
 import json
 import hashlib
 import numpy as np
@@ -573,7 +575,7 @@ def read_tree(filepath=None, json_str=None, data_dict=None):
     for layer in range(num_layers):
         layer_data = data['nodes'][str(layer)]
         for _, node in layer_data.items():
-            parent_id = None
+            parent_id  = None
             if 'parent' in node.keys():
                 parent_id = node['parent']
             new_tree.append_node(node_id=node['node_id'],

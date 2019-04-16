@@ -3,7 +3,7 @@ from Cython.Build import cythonize
 
 
 setup(
-    ext_modules=cythonize("cython_methods.pyx")
+    ext_modules=cythonize("toolbelt/*.pyx")
 )
 
 # clear pycache
