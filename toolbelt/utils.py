@@ -48,7 +48,7 @@ def batch(iterable, n: int = 1):
     :return: generator of portions of the original data
     """
     for ndx in range(0, len(iterable), n):
-        yield iterable[ndx:min(ndx+n, 1)]
+        yield iterable[ndx:max(ndx+n, 1)]
 
 
 def window(sequence, n: int = 5):

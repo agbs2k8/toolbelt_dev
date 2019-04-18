@@ -42,6 +42,9 @@ class Host:
     def make_id():
         return hashlib.md5(str(np.random.rand()).encode('utf8')).hexdigest()[:7]
 
+    def get_trees(self):
+        return [tree for _, tree in self.process_trees.items()]
+
     def add_tree(self, new_tree):
         """
         Add a new tree to the Host's dict of trees.
@@ -50,13 +53,18 @@ class Host:
                   if the host is not unique-only, it returns nothing
         """
         if self.unique_only:
-            for existing_id, existing_tree in self.process_trees.items():
-                if existing_tree.matches(new_tree):
-                    self.unique_tree_counts[existing_id] += 1
-                    return False
-            self.process_trees[new_tree.tree_id] = new_tree
-            self.unique_tree_counts[new_tree.tree_id] = 1
-            return True
+            if len(self.process_trees.keys()) > 0:
+                for existing_id, existing_tree in self.process_trees.items():
+                    if existing_tree.matches(new_tree):
+                        self.unique_tree_counts[existing_id] += 1
+                        return False
+                self.process_trees[new_tree.tree_id] = new_tree
+                self.unique_tree_counts[new_tree.tree_id] = 1
+                return True
+            else:
+                self.process_trees[new_tree.tree_id] = new_tree
+                self.unique_tree_counts[new_tree.tree_id] = 1
+                return True
         else:
             self.process_trees[new_tree.tree_id] = new_tree
 
@@ -92,21 +100,13 @@ class Host:
         match_dict = dict()
         while len(remaining_trees) > 0:
             tree1_id = remaining_trees.pop(0)
-            tree1_obj = self.process_trees[tree1_id]
-            if len(remaining_trees) > 0:
-                for tree2_id in remaining_trees:
-                    tree2_obj = self.process_trees[tree2_id]
-                    have_match = tree1_obj.matches(tree2_obj)
-                    if have_match and tree1_id in match_dict.keys():
-                        match_dict[tree1_id].append(tree2_id)
-                    elif have_match and tree1_id not in match_dict.keys():
-                        match_dict[tree1_id] = [tree2_id]
-                    else:
-                        match_dict[tree1_id] = []
-                if tree1_id in match_dict.keys():
-                    remaining_trees = [x for x in remaining_trees if x not in match_dict[tree1_id]]
+            matches = [x for x in find_all_matches(self, self.process_trees[tree1_id]) if x!=tree1_id]
+            if len(matches) > 0:
+                match_dict[tree1_id] = matches
             else:
-                match_dict[tree1_id] = []
+                match_dict[tree1_id] = None
+
+            remaining_trees = [x for x in remaining_trees if x not in matches+[tree1_id]]
         if return_dict:
             return match_dict
         else:
@@ -118,7 +118,7 @@ class Host:
         for retained_tree_id in unique_tree_dict.keys():
             duplicates = unique_tree_dict[retained_tree_id]
             remaining_id_check.append(retained_tree_id)
-            if len(duplicates) > 0:
+            if duplicates:
                 self.unique_tree_counts[retained_tree_id] = len(duplicates)+1
                 for drop_tree_id in duplicates:
                     self.del_tree(drop_tree_id)
@@ -163,6 +163,14 @@ class ProcessTree(Tree):
 
     def __str__(self):
         return f"Process Tree for host {self.Host} with {len(self.nodes.keys())} nodes."
+
+    def get_host(self):
+        return Host
+
+    def set_host(self, host):
+        self.Host = host
+        if host:
+            self.Host.add_tree(self)
 
     def to_dict(self):
         ret_val = {'tree_id': self.tree_id}
@@ -336,18 +344,28 @@ def read_host(filepath=None, json_str=None):
         data = json.loads(json_str)
     else:
         raise ValueError('No valid data provided.')
-    if 'unique_only' in data.keys() and data['unique_only']:
-        new_host = Host(name=data['host_id'],
-                        operating_system=data['op_sys'],
-                        ip=data['ip'],
-                        env=data['env'],
-                        unique_only=True)
-        new_host.unique_tree_counts = data['unique_tree_counts']
+    if 'unique' in data.keys() and data['unique']:
+        make_unique = True
     else:
-        new_host = Host(name=data['host_id'],
-                        operating_system=data['op_sys'],
-                        ip=data['ip'],
-                        env=data['env'])
+        make_unique = False
+    new_host = Host(name=data['host_id'],
+                    operating_system=data['op_sys'],
+                    ip=data['ip'],
+                    env=data['env'])
     for _, tree in data['trees'].items():
         read_process_tree(data_dict=tree, host=new_host)
+    if make_unique:
+        new_host.unique_only = True
+        new_host.unique_tree_counts = data['unique_tree_counts']
     return new_host
+
+
+def find_all_matches(host, new_tree):
+    results = []
+    for tree_id, tree in host.process_trees.items():
+        if tree.matches(new_tree):
+            results.append(tree_id)
+    if len(results) > 0:
+        return results
+    else:
+        return None

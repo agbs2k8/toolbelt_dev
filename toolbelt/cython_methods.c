@@ -21,7 +21,7 @@ END: Cython Metadata */
 #else
 #define CYTHON_ABI "0_29_2"
 #define CYTHON_HEX_VERSION 0x001D02F0
-#define CYTHON_FUTURE_DIVISION 0
+#define CYTHON_FUTURE_DIVISION 1
 #include <stddef.h>
 #ifndef offsetof
   #define offsetof(type, member) ( (size_t) & ((type*)0) -> member )
@@ -994,8 +994,6 @@ static int __Pyx_check_binary_version(void);
 static int __Pyx_InitStrings(__Pyx_StringTabEntry *t);
 
 
-/* Module declarations from 'cython' */
-
 /* Module declarations from 'toolbelt.cython_methods' */
 #define __Pyx_MODULE_NAME "toolbelt.cython_methods"
 extern int __pyx_module_is_main_toolbelt__cython_methods;
@@ -1345,7 +1343,8 @@ if (!__Pyx_RefNanny) {
   #endif
 
   /* "toolbelt/cython_methods.pyx":1
- * import cython             # <<<<<<<<<<<<<<
+ * #!python             # <<<<<<<<<<<<<<
+ * #cython: language_level=3
  * 
  */
   __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1, __pyx_L1_error)

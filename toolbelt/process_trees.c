@@ -1080,6 +1080,23 @@ static CYTHON_INLINE PyObject* __Pyx_dict_iterator(PyObject* dict, int is_dict, 
 static CYTHON_INLINE int __Pyx_dict_iter_next(PyObject* dict_or_iter, Py_ssize_t orig_length, Py_ssize_t* ppos,
                                               PyObject** pkey, PyObject** pvalue, PyObject** pitem, int is_dict);
 
+/* ListCompAppend.proto */
+#if CYTHON_USE_PYLIST_INTERNALS && CYTHON_ASSUME_SAFE_MACROS
+static CYTHON_INLINE int __Pyx_ListComp_Append(PyObject* list, PyObject* x) {
+    PyListObject* L = (PyListObject*) list;
+    Py_ssize_t len = Py_SIZE(list);
+    if (likely(L->allocated > len)) {
+        Py_INCREF(x);
+        PyList_SET_ITEM(list, len, x);
+        Py_SIZE(list) = len+1;
+        return 0;
+    }
+    return PyList_Append(list, x);
+}
+#else
+#define __Pyx_ListComp_Append(L,x) PyList_Append(L,x)
+#endif
+
 /* PyIntBinop.proto */
 #if !CYTHON_COMPILING_IN_PYPY
 static PyObject* __Pyx_PyInt_AddObjC(PyObject *op1, PyObject *op2, long intval, int inplace);
@@ -1203,23 +1220,6 @@ static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject 
 #define __Pyx_ErrFetch(type, value, tb)  PyErr_Fetch(type, value, tb)
 #endif
 
-/* ListCompAppend.proto */
-#if CYTHON_USE_PYLIST_INTERNALS && CYTHON_ASSUME_SAFE_MACROS
-static CYTHON_INLINE int __Pyx_ListComp_Append(PyObject* list, PyObject* x) {
-    PyListObject* L = (PyListObject*) list;
-    Py_ssize_t len = Py_SIZE(list);
-    if (likely(L->allocated > len)) {
-        Py_INCREF(x);
-        PyList_SET_ITEM(list, len, x);
-        Py_SIZE(list) = len+1;
-        return 0;
-    }
-    return PyList_Append(list, x);
-}
-#else
-#define __Pyx_ListComp_Append(L,x) PyList_Append(L,x)
-#endif
-
 /* PyObjectCallMethod1.proto */
 static PyObject* __Pyx_PyObject_CallMethod1(PyObject* obj, PyObject* method_name, PyObject* arg);
 
@@ -1245,6 +1245,12 @@ static PyObject* __Pyx__PyList_PopIndex(PyObject* L, PyObject* py_ix, Py_ssize_t
     (unlikely(py_ix == Py_None)) ? __Pyx__PyObject_PopNewIndex(L, to_py_func(ix)) :\
         __Pyx__PyObject_PopIndex(L, py_ix))
 #endif
+
+/* PySequenceContains.proto */
+static CYTHON_INLINE int __Pyx_PySequence_ContainsTF(PyObject* item, PyObject* seq, int eq) {
+    int result = PySequence_Contains(seq, item);
+    return unlikely(result < 0) ? result : (result == (eq == Py_EQ));
+}
 
 /* py_dict_keys.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyDict_Keys(PyObject* d);
@@ -1278,12 +1284,6 @@ static PyObject* __Pyx__CallUnboundCMethod0(__Pyx_CachedCFunction* cfunc, PyObje
 #define __Pyx_CallUnboundCMethod0(cfunc, self)  __Pyx__CallUnboundCMethod0(cfunc, self)
 #endif
 
-/* PySequenceContains.proto */
-static CYTHON_INLINE int __Pyx_PySequence_ContainsTF(PyObject* item, PyObject* seq, int eq) {
-    int result = PySequence_Contains(seq, item);
-    return unlikely(result < 0) ? result : (result == (eq == Py_EQ));
-}
-
 /* ListAppend.proto */
 #if CYTHON_USE_PYLIST_INTERNALS && CYTHON_ASSUME_SAFE_MACROS
 static CYTHON_INLINE int __Pyx_PyList_Append(PyObject* list, PyObject* x) {
@@ -1299,20 +1299,6 @@ static CYTHON_INLINE int __Pyx_PyList_Append(PyObject* list, PyObject* x) {
 }
 #else
 #define __Pyx_PyList_Append(L,x) PyList_Append(L,x)
-#endif
-
-/* append.proto */
-static CYTHON_INLINE int __Pyx_PyObject_Append(PyObject* L, PyObject* x);
-
-/* DictGetItem.proto */
-#if PY_MAJOR_VERSION >= 3 && !CYTHON_COMPILING_IN_PYPY
-static PyObject *__Pyx_PyDict_GetItem(PyObject *d, PyObject* key);
-#define __Pyx_PyObject_Dict_GetItem(obj, name)\
-    (likely(PyDict_CheckExact(obj)) ?\
-     __Pyx_PyDict_GetItem(obj, name) : PyObject_GetItem(obj, name))
-#else
-#define __Pyx_PyDict_GetItem(d, key) PyObject_GetItem(d, key)
-#define __Pyx_PyObject_Dict_GetItem(obj, name)  PyObject_GetItem(obj, name)
 #endif
 
 /* RaiseException.proto */
@@ -1333,6 +1319,17 @@ static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *nam
 
 /* None.proto */
 static CYTHON_INLINE void __Pyx_RaiseUnboundLocalError(const char *varname);
+
+/* DictGetItem.proto */
+#if PY_MAJOR_VERSION >= 3 && !CYTHON_COMPILING_IN_PYPY
+static PyObject *__Pyx_PyDict_GetItem(PyObject *d, PyObject* key);
+#define __Pyx_PyObject_Dict_GetItem(obj, name)\
+    (likely(PyDict_CheckExact(obj)) ?\
+     __Pyx_PyDict_GetItem(obj, name) : PyObject_GetItem(obj, name))
+#else
+#define __Pyx_PyDict_GetItem(d, key) PyObject_GetItem(d, key)
+#define __Pyx_PyObject_Dict_GetItem(obj, name)  PyObject_GetItem(obj, name)
+#endif
 
 /* Import.proto */
 static PyObject *__Pyx_Import(PyObject *name, PyObject *from_list, int level);
@@ -1495,7 +1492,7 @@ static const char __pyx_k_id[] = "_id";
 static const char __pyx_k_ip[] = "ip";
 static const char __pyx_k_np[] = "np";
 static const char __pyx_k_os[] = "os";
-static const char __pyx_k__26[] = "_";
+static const char __pyx_k__17[] = "_";
 static const char __pyx_k_doc[] = "__doc__";
 static const char __pyx_k_env[] = "env";
 static const char __pyx_k_max[] = "max";
@@ -1541,7 +1538,6 @@ static const char __pyx_k_nodes[] = "nodes";
 static const char __pyx_k_numpy[] = "numpy";
 static const char __pyx_k_range[] = "range";
 static const char __pyx_k_trees[] = "trees";
-static const char __pyx_k_append[] = "append";
 static const char __pyx_k_import[] = "__import__";
 static const char __pyx_k_indent[] = "indent";
 static const char __pyx_k_layers[] = "layers";
@@ -1562,6 +1558,7 @@ static const char __pyx_k_matches[] = "matches";
 static const char __pyx_k_node_id[] = "node_id";
 static const char __pyx_k_nodes_2[] = " nodes.";
 static const char __pyx_k_prepare[] = "__prepare__";
+static const char __pyx_k_results[] = "results";
 static const char __pyx_k_ret_val[] = "ret_val";
 static const char __pyx_k_to_dict[] = "to_dict";
 static const char __pyx_k_to_json[] = "to_json";
@@ -1573,6 +1570,7 @@ static const char __pyx_k_add_tree[] = "add_tree";
 static const char __pyx_k_del_tree[] = "del_tree";
 static const char __pyx_k_filepath[] = "filepath";
 static const char __pyx_k_fix_date[] = "fix_date";
+static const char __pyx_k_get_host[] = "get_host";
 static const char __pyx_k_get_path[] = "get_path";
 static const char __pyx_k_get_time[] = "get_time";
 static const char __pyx_k_json_str[] = "json_str";
@@ -1581,13 +1579,14 @@ static const char __pyx_k_new_node[] = "new_node";
 static const char __pyx_k_new_tree[] = "new_tree";
 static const char __pyx_k_node_idx[] = "node_idx";
 static const char __pyx_k_qualname[] = "__qualname__";
+static const char __pyx_k_set_host[] = "set_host";
 static const char __pyx_k_set_path[] = "set_path";
 static const char __pyx_k_set_time[] = "set_time";
 static const char __pyx_k_tree1_id[] = "tree1_id";
-static const char __pyx_k_tree2_id[] = "tree2_id";
 static const char __pyx_k_unique_2[] = "unique";
 static const char __pyx_k_data_dict[] = "data_dict";
 static const char __pyx_k_enumerate[] = "enumerate";
+static const char __pyx_k_get_trees[] = "get_trees";
 static const char __pyx_k_hexdigest[] = "hexdigest";
 static const char __pyx_k_host_name[] = "host_name";
 static const char __pyx_k_layer_idx[] = "layer_idx";
@@ -1599,8 +1598,6 @@ static const char __pyx_k_push_proc[] = "push_proc";
 static const char __pyx_k_read_host[] = "read_host";
 static const char __pyx_k_timestamp[] = "timestamp";
 static const char __pyx_k_to_unique[] = "to_unique";
-static const char __pyx_k_tree1_obj[] = "tree1_obj";
-static const char __pyx_k_tree2_obj[] = "tree2_obj";
 static const char __pyx_k_Host___str[] = "Host.__str__";
 static const char __pyx_k_IndexError[] = "IndexError";
 static const char __pyx_k_ValueError[] = "ValueError";
@@ -1610,7 +1607,6 @@ static const char __pyx_k_clean_date[] = "clean_date";
 static const char __pyx_k_datetime64[] = "datetime64";
 static const char __pyx_k_duplicates[] = "duplicates";
 static const char __pyx_k_get_layers[] = "get_layers";
-static const char __pyx_k_have_match[] = "have_match";
 static const char __pyx_k_layer_data[] = "layer_data";
 static const char __pyx_k_layer_dict[] = "layer_dict";
 static const char __pyx_k_match_dict[] = "match_dict";
@@ -1624,6 +1620,7 @@ static const char __pyx_k_ProcessTree[] = "ProcessTree";
 static const char __pyx_k_append_proc[] = "append_proc";
 static const char __pyx_k_existing_id[] = "existing_id";
 static const char __pyx_k_layers_dict[] = "layers_dict";
+static const char __pyx_k_make_unique[] = "make_unique";
 static const char __pyx_k_parent_guid[] = "parent_guid";
 static const char __pyx_k_passed_date[] = "passed_date";
 static const char __pyx_k_return_dict[] = "return_dict";
@@ -1638,6 +1635,7 @@ static const char __pyx_k_Host_del_tree[] = "Host.del_tree";
 static const char __pyx_k_Process___str[] = "Process.__str__";
 static const char __pyx_k_existing_tree[] = "existing_tree";
 static const char __pyx_k_process_trees[] = "process_trees";
+static const char __pyx_k_Host_get_trees[] = "Host.get_trees";
 static const char __pyx_k_Host_to_unique[] = "Host.to_unique";
 static const char __pyx_k_Process___init[] = "Process.__init__";
 static const char __pyx_k_Process___repr[] = "Process.__repr__";
@@ -1655,6 +1653,7 @@ static const char __pyx_k_Process_get_path[] = "Process.get_path";
 static const char __pyx_k_Process_get_time[] = "Process.get_time";
 static const char __pyx_k_Process_set_path[] = "Process.set_path";
 static const char __pyx_k_Process_set_time[] = "Process.set_time";
+static const char __pyx_k_find_all_matches[] = "find_all_matches";
 static const char __pyx_k_ignore_structure[] = "ignore_structure";
 static const char __pyx_k_operating_system[] = "operating_system";
 static const char __pyx_k_retained_tree_id[] = "retained_tree_id";
@@ -1673,6 +1672,8 @@ static const char __pyx_k_ProcessTree_to_json[] = "ProcessTree.to_json";
 static const char __pyx_k_Process_Instance_of[] = "Process Instance of ";
 static const char __pyx_k_find_and_set_parent[] = "find_and_set_parent";
 static const char __pyx_k_Host_drop_duplicates[] = "Host.drop_duplicates";
+static const char __pyx_k_ProcessTree_get_host[] = "ProcessTree.get_host";
+static const char __pyx_k_ProcessTree_set_host[] = "ProcessTree.set_host";
 static const char __pyx_k_ProcessTree_push_proc[] = "ProcessTree.push_proc";
 static const char __pyx_k_Process_Tree_for_host[] = "Process Tree for host ";
 static const char __pyx_k_Host_find_unique_trees[] = "Host.find_unique_trees";
@@ -1704,6 +1705,7 @@ static PyObject *__pyx_n_s_Host_add_tree;
 static PyObject *__pyx_n_s_Host_del_tree;
 static PyObject *__pyx_n_s_Host_drop_duplicates;
 static PyObject *__pyx_n_s_Host_find_unique_trees;
+static PyObject *__pyx_n_s_Host_get_trees;
 static PyObject *__pyx_n_s_Host_make_id;
 static PyObject *__pyx_n_s_Host_to_dict;
 static PyObject *__pyx_n_s_Host_to_json;
@@ -1723,7 +1725,9 @@ static PyObject *__pyx_n_s_ProcessTree___init;
 static PyObject *__pyx_n_s_ProcessTree___repr;
 static PyObject *__pyx_n_s_ProcessTree___str;
 static PyObject *__pyx_n_s_ProcessTree_append_proc;
+static PyObject *__pyx_n_s_ProcessTree_get_host;
 static PyObject *__pyx_n_s_ProcessTree_push_proc;
+static PyObject *__pyx_n_s_ProcessTree_set_host;
 static PyObject *__pyx_n_s_ProcessTree_to_dict;
 static PyObject *__pyx_n_s_ProcessTree_to_json;
 static PyObject *__pyx_kp_u_Process_Instance_of;
@@ -1744,10 +1748,9 @@ static PyObject *__pyx_kp_u_The_de_duplication_process_faile;
 static PyObject *__pyx_kp_u_The_designated_parent_GUID_does;
 static PyObject *__pyx_n_s_Tree;
 static PyObject *__pyx_n_s_ValueError;
+static PyObject *__pyx_n_s__17;
 static PyObject *__pyx_kp_u__2;
-static PyObject *__pyx_n_s__26;
 static PyObject *__pyx_n_s_add_tree;
-static PyObject *__pyx_n_s_append;
 static PyObject *__pyx_n_s_append_proc;
 static PyObject *__pyx_n_s_array;
 static PyObject *__pyx_n_s_check_tree;
@@ -1774,16 +1777,18 @@ static PyObject *__pyx_n_s_existing_tree;
 static PyObject *__pyx_n_s_exit;
 static PyObject *__pyx_n_s_f;
 static PyObject *__pyx_n_s_filepath;
+static PyObject *__pyx_n_s_find_all_matches;
 static PyObject *__pyx_n_s_find_and_add_child;
 static PyObject *__pyx_n_s_find_and_set_parent;
 static PyObject *__pyx_n_s_find_unique_trees;
 static PyObject *__pyx_n_s_fix_date;
+static PyObject *__pyx_n_s_get_host;
 static PyObject *__pyx_n_s_get_layers;
 static PyObject *__pyx_n_s_get_path;
 static PyObject *__pyx_n_s_get_time;
+static PyObject *__pyx_n_s_get_trees;
 static PyObject *__pyx_n_s_guid;
 static PyObject *__pyx_n_s_hashlib;
-static PyObject *__pyx_n_s_have_match;
 static PyObject *__pyx_n_s_hexdigest;
 static PyObject *__pyx_n_s_host;
 static PyObject *__pyx_n_u_host;
@@ -1814,6 +1819,7 @@ static PyObject *__pyx_n_s_load;
 static PyObject *__pyx_n_s_loads;
 static PyObject *__pyx_n_s_main;
 static PyObject *__pyx_n_s_make_id;
+static PyObject *__pyx_n_s_make_unique;
 static PyObject *__pyx_n_s_match_dict;
 static PyObject *__pyx_n_s_matches;
 static PyObject *__pyx_n_s_max;
@@ -1868,10 +1874,12 @@ static PyObject *__pyx_n_s_read_process_tree;
 static PyObject *__pyx_n_s_remaining_id_check;
 static PyObject *__pyx_n_s_remaining_trees;
 static PyObject *__pyx_n_s_repr;
+static PyObject *__pyx_n_s_results;
 static PyObject *__pyx_n_s_ret_val;
 static PyObject *__pyx_n_s_retained_tree_id;
 static PyObject *__pyx_n_s_return_dict;
 static PyObject *__pyx_n_s_self;
+static PyObject *__pyx_n_s_set_host;
 static PyObject *__pyx_n_s_set_path;
 static PyObject *__pyx_n_s_set_time;
 static PyObject *__pyx_n_s_staticmethod;
@@ -1889,9 +1897,6 @@ static PyObject *__pyx_n_s_toolbelt_process_trees;
 static PyObject *__pyx_kp_s_toolbelt_process_trees_pyx;
 static PyObject *__pyx_n_s_tree;
 static PyObject *__pyx_n_s_tree1_id;
-static PyObject *__pyx_n_s_tree1_obj;
-static PyObject *__pyx_n_s_tree2_id;
-static PyObject *__pyx_n_s_tree2_obj;
 static PyObject *__pyx_n_s_tree_2;
 static PyObject *__pyx_n_s_tree_id;
 static PyObject *__pyx_n_u_tree_id;
@@ -1904,7 +1909,6 @@ static PyObject *__pyx_n_u_unicode;
 static PyObject *__pyx_kp_u_unique;
 static PyObject *__pyx_n_u_unique_2;
 static PyObject *__pyx_n_s_unique_only;
-static PyObject *__pyx_n_u_unique_only;
 static PyObject *__pyx_n_s_unique_tree_counts;
 static PyObject *__pyx_n_u_unique_tree_counts;
 static PyObject *__pyx_n_s_unique_tree_dict;
@@ -1919,21 +1923,24 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host___init__(CYTHON_UNUSED
 static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_2__repr__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_4__str__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_6make_id(CYTHON_UNUSED PyObject *__pyx_self); /* proto */
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_8add_tree(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_new_tree); /* proto */
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_10del_tree(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_tree_to_remove); /* proto */
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_12to_dict(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_filepath, PyObject *__pyx_v_indent); /* proto */
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_16find_unique_trees(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_return_dict); /* proto */
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_18drop_duplicates(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_20to_unique(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_22tree_stats(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_8get_trees(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_10add_tree(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_new_tree); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_12del_tree(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_tree_to_remove); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_dict(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_16to_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_filepath, PyObject *__pyx_v_indent); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_18find_unique_trees(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_return_dict); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_20drop_duplicates(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_22to_unique(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_24tree_stats(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_tree_id, PyObject *__pyx_v_host); /* proto */
 static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_2__repr__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_4__str__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_filepath, PyObject *__pyx_v_indent); /* proto */
-static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_guid, PyObject *__pyx_v_proc_name, PyObject *__pyx_v_parent_guid, PyObject *__pyx_v_timestamp, PyObject *__pyx_v_proc_path, PyObject *__pyx_v_ignore_structure); /* proto */
-static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_guid, PyObject *__pyx_v_proc_name, PyObject *__pyx_v_children_guids, PyObject *__pyx_v_timestamp, PyObject *__pyx_v_proc_path, PyObject *__pyx_v_ignore_structure); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6get_host(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8set_host(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_host); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10to_dict(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12to_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_filepath, PyObject *__pyx_v_indent); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_14append_proc(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_guid, PyObject *__pyx_v_proc_name, PyObject *__pyx_v_parent_guid, PyObject *__pyx_v_timestamp, PyObject *__pyx_v_proc_path, PyObject *__pyx_v_ignore_structure); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_16push_proc(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_guid, PyObject *__pyx_v_proc_name, PyObject *__pyx_v_children_guids, PyObject *__pyx_v_timestamp, PyObject *__pyx_v_proc_path, PyObject *__pyx_v_ignore_structure); /* proto */
 static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_guid, PyObject *__pyx_v_proc_name, PyObject *__pyx_v_tree, PyObject *__pyx_v_timestamp, PyObject *__pyx_v_proc_path); /* proto */
 static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_2__repr__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_4__str__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
@@ -1946,6 +1953,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_16get_path(CYTHON_U
 static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_18set_path(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_path); /* proto */
 static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_filepath, PyObject *__pyx_v_json_str, PyObject *__pyx_v_data_dict, PyObject *__pyx_v_host); /* proto */
 static PyObject *__pyx_pf_8toolbelt_13process_trees_2read_host(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_filepath, PyObject *__pyx_v_json_str); /* proto */
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4find_all_matches(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_host, PyObject *__pyx_v_new_tree); /* proto */
 static __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_keys = {0, &__pyx_n_s_keys, 0, 0, 0};
 static PyObject *__pyx_int_0;
 static PyObject *__pyx_int_1;
@@ -1964,72 +1972,80 @@ static PyObject *__pyx_tuple__9;
 static PyObject *__pyx_tuple__11;
 static PyObject *__pyx_tuple__12;
 static PyObject *__pyx_tuple__14;
-static PyObject *__pyx_tuple__17;
-static PyObject *__pyx_tuple__19;
-static PyObject *__pyx_tuple__21;
-static PyObject *__pyx_tuple__23;
-static PyObject *__pyx_tuple__25;
-static PyObject *__pyx_tuple__27;
+static PyObject *__pyx_tuple__18;
+static PyObject *__pyx_tuple__20;
+static PyObject *__pyx_tuple__22;
+static PyObject *__pyx_tuple__24;
+static PyObject *__pyx_tuple__26;
+static PyObject *__pyx_tuple__28;
 static PyObject *__pyx_tuple__29;
-static PyObject *__pyx_tuple__30;
+static PyObject *__pyx_tuple__31;
 static PyObject *__pyx_tuple__32;
 static PyObject *__pyx_tuple__34;
 static PyObject *__pyx_tuple__36;
 static PyObject *__pyx_tuple__38;
-static PyObject *__pyx_tuple__39;
+static PyObject *__pyx_tuple__40;
 static PyObject *__pyx_tuple__41;
 static PyObject *__pyx_tuple__43;
 static PyObject *__pyx_tuple__45;
 static PyObject *__pyx_tuple__47;
-static PyObject *__pyx_tuple__48;
-static PyObject *__pyx_tuple__50;
+static PyObject *__pyx_tuple__49;
 static PyObject *__pyx_tuple__51;
 static PyObject *__pyx_tuple__53;
 static PyObject *__pyx_tuple__54;
 static PyObject *__pyx_tuple__56;
 static PyObject *__pyx_tuple__57;
 static PyObject *__pyx_tuple__59;
-static PyObject *__pyx_tuple__61;
+static PyObject *__pyx_tuple__60;
+static PyObject *__pyx_tuple__62;
 static PyObject *__pyx_tuple__63;
 static PyObject *__pyx_tuple__65;
 static PyObject *__pyx_tuple__67;
-static PyObject *__pyx_tuple__68;
-static PyObject *__pyx_tuple__70;
-static PyObject *__pyx_tuple__72;
+static PyObject *__pyx_tuple__69;
+static PyObject *__pyx_tuple__71;
+static PyObject *__pyx_tuple__73;
 static PyObject *__pyx_tuple__74;
 static PyObject *__pyx_tuple__76;
 static PyObject *__pyx_tuple__78;
+static PyObject *__pyx_tuple__80;
+static PyObject *__pyx_tuple__82;
+static PyObject *__pyx_tuple__84;
+static PyObject *__pyx_tuple__86;
 static PyObject *__pyx_codeobj__10;
 static PyObject *__pyx_codeobj__13;
 static PyObject *__pyx_codeobj__15;
 static PyObject *__pyx_codeobj__16;
-static PyObject *__pyx_codeobj__18;
-static PyObject *__pyx_codeobj__20;
-static PyObject *__pyx_codeobj__22;
-static PyObject *__pyx_codeobj__24;
-static PyObject *__pyx_codeobj__28;
-static PyObject *__pyx_codeobj__31;
+static PyObject *__pyx_codeobj__19;
+static PyObject *__pyx_codeobj__21;
+static PyObject *__pyx_codeobj__23;
+static PyObject *__pyx_codeobj__25;
+static PyObject *__pyx_codeobj__27;
+static PyObject *__pyx_codeobj__30;
 static PyObject *__pyx_codeobj__33;
 static PyObject *__pyx_codeobj__35;
 static PyObject *__pyx_codeobj__37;
-static PyObject *__pyx_codeobj__40;
+static PyObject *__pyx_codeobj__39;
 static PyObject *__pyx_codeobj__42;
 static PyObject *__pyx_codeobj__44;
 static PyObject *__pyx_codeobj__46;
-static PyObject *__pyx_codeobj__49;
+static PyObject *__pyx_codeobj__48;
+static PyObject *__pyx_codeobj__50;
 static PyObject *__pyx_codeobj__52;
 static PyObject *__pyx_codeobj__55;
 static PyObject *__pyx_codeobj__58;
-static PyObject *__pyx_codeobj__60;
-static PyObject *__pyx_codeobj__62;
+static PyObject *__pyx_codeobj__61;
 static PyObject *__pyx_codeobj__64;
 static PyObject *__pyx_codeobj__66;
-static PyObject *__pyx_codeobj__69;
-static PyObject *__pyx_codeobj__71;
-static PyObject *__pyx_codeobj__73;
+static PyObject *__pyx_codeobj__68;
+static PyObject *__pyx_codeobj__70;
+static PyObject *__pyx_codeobj__72;
 static PyObject *__pyx_codeobj__75;
 static PyObject *__pyx_codeobj__77;
 static PyObject *__pyx_codeobj__79;
+static PyObject *__pyx_codeobj__81;
+static PyObject *__pyx_codeobj__83;
+static PyObject *__pyx_codeobj__85;
+static PyObject *__pyx_codeobj__87;
 /* Late includes */
 
 /* "toolbelt/process_trees.pyx":19
@@ -2637,7 +2653,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_6make_id(CYTHON_UNUSED
  *     def make_id():
  *         return hashlib.md5(str(np.random.rand()).encode('utf8')).hexdigest()[:7]             # <<<<<<<<<<<<<<
  * 
- *     def add_tree(self, new_tree):
+ *     def get_trees(self):
  */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_hashlib); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 43, __pyx_L1_error)
@@ -2742,16 +2758,127 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_6make_id(CYTHON_UNUSED
 /* "toolbelt/process_trees.pyx":45
  *         return hashlib.md5(str(np.random.rand()).encode('utf8')).hexdigest()[:7]
  * 
+ *     def get_trees(self):             # <<<<<<<<<<<<<<
+ *         return [tree for _, tree in self.process_trees.items()]
+ * 
+ */
+
+/* Python wrapper */
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_9get_trees(PyObject *__pyx_self, PyObject *__pyx_v_self); /*proto*/
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_9get_trees = {"get_trees", (PyCFunction)__pyx_pw_8toolbelt_13process_trees_4Host_9get_trees, METH_O, 0};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_9get_trees(PyObject *__pyx_self, PyObject *__pyx_v_self) {
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("get_trees (wrapper)", 0);
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_8get_trees(__pyx_self, ((PyObject *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_8get_trees(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
+  CYTHON_UNUSED PyObject *__pyx_7genexpr__pyx_v__ = NULL;
+  PyObject *__pyx_7genexpr__pyx_v_tree = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  Py_ssize_t __pyx_t_3;
+  Py_ssize_t __pyx_t_4;
+  int __pyx_t_5;
+  PyObject *__pyx_t_6 = NULL;
+  PyObject *__pyx_t_7 = NULL;
+  int __pyx_t_8;
+  __Pyx_RefNannySetupContext("get_trees", 0);
+
+  /* "toolbelt/process_trees.pyx":46
+ * 
+ *     def get_trees(self):
+ *         return [tree for _, tree in self.process_trees.items()]             # <<<<<<<<<<<<<<
+ * 
+ *     def add_tree(self, new_tree):
+ */
+  __Pyx_XDECREF(__pyx_r);
+  { /* enter inner scope */
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 46, __pyx_L5_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_3 = 0;
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 46, __pyx_L5_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    if (unlikely(__pyx_t_6 == Py_None)) {
+      PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
+      __PYX_ERR(0, 46, __pyx_L5_error)
+    }
+    __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_6, 0, __pyx_n_s_items, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 46, __pyx_L5_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_XDECREF(__pyx_t_2);
+    __pyx_t_2 = __pyx_t_7;
+    __pyx_t_7 = 0;
+    while (1) {
+      __pyx_t_8 = __Pyx_dict_iter_next(__pyx_t_2, __pyx_t_4, &__pyx_t_3, &__pyx_t_7, &__pyx_t_6, NULL, __pyx_t_5);
+      if (unlikely(__pyx_t_8 == 0)) break;
+      if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 46, __pyx_L5_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      __Pyx_GOTREF(__pyx_t_6);
+      __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v__, __pyx_t_7);
+      __pyx_t_7 = 0;
+      __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_tree, __pyx_t_6);
+      __pyx_t_6 = 0;
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_7genexpr__pyx_v_tree))) __PYX_ERR(0, 46, __pyx_L5_error)
+    }
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_XDECREF(__pyx_7genexpr__pyx_v__); __pyx_7genexpr__pyx_v__ = 0;
+    __Pyx_XDECREF(__pyx_7genexpr__pyx_v_tree); __pyx_7genexpr__pyx_v_tree = 0;
+    goto __pyx_L8_exit_scope;
+    __pyx_L5_error:;
+    __Pyx_XDECREF(__pyx_7genexpr__pyx_v__); __pyx_7genexpr__pyx_v__ = 0;
+    __Pyx_XDECREF(__pyx_7genexpr__pyx_v_tree); __pyx_7genexpr__pyx_v_tree = 0;
+    goto __pyx_L1_error;
+    __pyx_L8_exit_scope:;
+  } /* exit inner scope */
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "toolbelt/process_trees.pyx":45
+ *         return hashlib.md5(str(np.random.rand()).encode('utf8')).hexdigest()[:7]
+ * 
+ *     def get_trees(self):             # <<<<<<<<<<<<<<
+ *         return [tree for _, tree in self.process_trees.items()]
+ * 
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_AddTraceback("toolbelt.process_trees.Host.get_trees", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_7genexpr__pyx_v__);
+  __Pyx_XDECREF(__pyx_7genexpr__pyx_v_tree);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "toolbelt/process_trees.pyx":48
+ *         return [tree for _, tree in self.process_trees.items()]
+ * 
  *     def add_tree(self, new_tree):             # <<<<<<<<<<<<<<
  *         """
  *         Add a new tree to the Host's dict of trees.
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_9add_tree(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static char __pyx_doc_8toolbelt_13process_trees_4Host_8add_tree[] = "\n        Add a new tree to the Host's dict of trees.\n        :param new_tree: the tree to add to the host's list of trees\n        :return : returns for a unique-only host if the process is new, false if the process existed already...\n                  if the host is not unique-only, it returns nothing\n        ";
-static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_9add_tree = {"add_tree", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_4Host_9add_tree, METH_VARARGS|METH_KEYWORDS, __pyx_doc_8toolbelt_13process_trees_4Host_8add_tree};
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_9add_tree(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_11add_tree(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static char __pyx_doc_8toolbelt_13process_trees_4Host_10add_tree[] = "\n        Add a new tree to the Host's dict of trees.\n        :param new_tree: the tree to add to the host's list of trees\n        :return : returns for a unique-only host if the process is new, false if the process existed already...\n                  if the host is not unique-only, it returns nothing\n        ";
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_11add_tree = {"add_tree", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_4Host_11add_tree, METH_VARARGS|METH_KEYWORDS, __pyx_doc_8toolbelt_13process_trees_4Host_10add_tree};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_11add_tree(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_self = 0;
   PyObject *__pyx_v_new_tree = 0;
   PyObject *__pyx_r = 0;
@@ -2780,11 +2907,11 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_9add_tree(PyObject *__
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_new_tree)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("add_tree", 1, 2, 2, 1); __PYX_ERR(0, 45, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("add_tree", 1, 2, 2, 1); __PYX_ERR(0, 48, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "add_tree") < 0)) __PYX_ERR(0, 45, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "add_tree") < 0)) __PYX_ERR(0, 48, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
       goto __pyx_L5_argtuple_error;
@@ -2797,223 +2924,308 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_9add_tree(PyObject *__
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("add_tree", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 45, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("add_tree", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 48, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("toolbelt.process_trees.Host.add_tree", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_8add_tree(__pyx_self, __pyx_v_self, __pyx_v_new_tree);
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_10add_tree(__pyx_self, __pyx_v_self, __pyx_v_new_tree);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_8add_tree(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_new_tree) {
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_10add_tree(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_new_tree) {
   PyObject *__pyx_v_existing_id = NULL;
   PyObject *__pyx_v_existing_tree = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
   int __pyx_t_2;
-  Py_ssize_t __pyx_t_3;
-  Py_ssize_t __pyx_t_4;
-  int __pyx_t_5;
-  PyObject *__pyx_t_6 = NULL;
-  PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  Py_ssize_t __pyx_t_5;
+  Py_ssize_t __pyx_t_6;
+  int __pyx_t_7;
   int __pyx_t_8;
   PyObject *__pyx_t_9 = NULL;
   PyObject *__pyx_t_10 = NULL;
   __Pyx_RefNannySetupContext("add_tree", 0);
 
-  /* "toolbelt/process_trees.pyx":52
+  /* "toolbelt/process_trees.pyx":55
  *                   if the host is not unique-only, it returns nothing
  *         """
  *         if self.unique_only:             # <<<<<<<<<<<<<<
- *             for existing_id, existing_tree in self.process_trees.items():
- *                 if existing_tree.matches(new_tree):
+ *             if len(self.process_trees.keys()) > 0:
+ *                 for existing_id, existing_tree in self.process_trees.items():
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_unique_only); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 52, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_unique_only); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 52, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 55, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "toolbelt/process_trees.pyx":53
+    /* "toolbelt/process_trees.pyx":56
  *         """
  *         if self.unique_only:
- *             for existing_id, existing_tree in self.process_trees.items():             # <<<<<<<<<<<<<<
- *                 if existing_tree.matches(new_tree):
- *                     self.unique_tree_counts[existing_id] += 1
+ *             if len(self.process_trees.keys()) > 0:             # <<<<<<<<<<<<<<
+ *                 for existing_id, existing_tree in self.process_trees.items():
+ *                     if existing_tree.matches(new_tree):
  */
-    __pyx_t_3 = 0;
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 53, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    if (unlikely(__pyx_t_6 == Py_None)) {
-      PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-      __PYX_ERR(0, 53, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 56, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_keys); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 56, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_3 = NULL;
+    if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_4))) {
+      __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_4);
+      if (likely(__pyx_t_3)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_4);
+        __Pyx_INCREF(__pyx_t_3);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_4, function);
+      }
     }
-    __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_6, 0, __pyx_n_s_items, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 53, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_7);
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __Pyx_XDECREF(__pyx_t_1);
-    __pyx_t_1 = __pyx_t_7;
-    __pyx_t_7 = 0;
-    while (1) {
-      __pyx_t_8 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_4, &__pyx_t_3, &__pyx_t_7, &__pyx_t_6, NULL, __pyx_t_5);
-      if (unlikely(__pyx_t_8 == 0)) break;
-      if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 53, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_7);
-      __Pyx_GOTREF(__pyx_t_6);
-      __Pyx_XDECREF_SET(__pyx_v_existing_id, __pyx_t_7);
-      __pyx_t_7 = 0;
-      __Pyx_XDECREF_SET(__pyx_v_existing_tree, __pyx_t_6);
-      __pyx_t_6 = 0;
+    __pyx_t_1 = (__pyx_t_3) ? __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_t_3) : __Pyx_PyObject_CallNoArg(__pyx_t_4);
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 56, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __pyx_t_5 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 56, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_2 = ((__pyx_t_5 > 0) != 0);
+    if (__pyx_t_2) {
 
-      /* "toolbelt/process_trees.pyx":54
+      /* "toolbelt/process_trees.pyx":57
  *         if self.unique_only:
- *             for existing_id, existing_tree in self.process_trees.items():
- *                 if existing_tree.matches(new_tree):             # <<<<<<<<<<<<<<
- *                     self.unique_tree_counts[existing_id] += 1
- *                     return False
+ *             if len(self.process_trees.keys()) > 0:
+ *                 for existing_id, existing_tree in self.process_trees.items():             # <<<<<<<<<<<<<<
+ *                     if existing_tree.matches(new_tree):
+ *                         self.unique_tree_counts[existing_id] += 1
  */
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_existing_tree, __pyx_n_s_matches); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 54, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_9 = NULL;
-      if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_7))) {
-        __pyx_t_9 = PyMethod_GET_SELF(__pyx_t_7);
-        if (likely(__pyx_t_9)) {
-          PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_7);
-          __Pyx_INCREF(__pyx_t_9);
-          __Pyx_INCREF(function);
-          __Pyx_DECREF_SET(__pyx_t_7, function);
+      __pyx_t_5 = 0;
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 57, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (unlikely(__pyx_t_4 == Py_None)) {
+        PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
+        __PYX_ERR(0, 57, __pyx_L1_error)
+      }
+      __pyx_t_3 = __Pyx_dict_iterator(__pyx_t_4, 0, __pyx_n_s_items, (&__pyx_t_6), (&__pyx_t_7)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 57, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_XDECREF(__pyx_t_1);
+      __pyx_t_1 = __pyx_t_3;
+      __pyx_t_3 = 0;
+      while (1) {
+        __pyx_t_8 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_6, &__pyx_t_5, &__pyx_t_3, &__pyx_t_4, NULL, __pyx_t_7);
+        if (unlikely(__pyx_t_8 == 0)) break;
+        if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 57, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_3);
+        __Pyx_GOTREF(__pyx_t_4);
+        __Pyx_XDECREF_SET(__pyx_v_existing_id, __pyx_t_3);
+        __pyx_t_3 = 0;
+        __Pyx_XDECREF_SET(__pyx_v_existing_tree, __pyx_t_4);
+        __pyx_t_4 = 0;
+
+        /* "toolbelt/process_trees.pyx":58
+ *             if len(self.process_trees.keys()) > 0:
+ *                 for existing_id, existing_tree in self.process_trees.items():
+ *                     if existing_tree.matches(new_tree):             # <<<<<<<<<<<<<<
+ *                         self.unique_tree_counts[existing_id] += 1
+ *                         return False
+ */
+        __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_existing_tree, __pyx_n_s_matches); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 58, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_3);
+        __pyx_t_9 = NULL;
+        if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_3))) {
+          __pyx_t_9 = PyMethod_GET_SELF(__pyx_t_3);
+          if (likely(__pyx_t_9)) {
+            PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
+            __Pyx_INCREF(__pyx_t_9);
+            __Pyx_INCREF(function);
+            __Pyx_DECREF_SET(__pyx_t_3, function);
+          }
+        }
+        __pyx_t_4 = (__pyx_t_9) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_9, __pyx_v_new_tree) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_new_tree);
+        __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 58, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_4);
+        __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+        __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 58, __pyx_L1_error)
+        __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+        if (__pyx_t_2) {
+
+          /* "toolbelt/process_trees.pyx":59
+ *                 for existing_id, existing_tree in self.process_trees.items():
+ *                     if existing_tree.matches(new_tree):
+ *                         self.unique_tree_counts[existing_id] += 1             # <<<<<<<<<<<<<<
+ *                         return False
+ *                 self.process_trees[new_tree.tree_id] = new_tree
+ */
+          __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_unique_tree_counts); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 59, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_4);
+          __Pyx_INCREF(__pyx_v_existing_id);
+          __pyx_t_3 = __pyx_v_existing_id;
+          __pyx_t_9 = __Pyx_PyObject_GetItem(__pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 59, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_9);
+          __pyx_t_10 = __Pyx_PyInt_AddObjC(__pyx_t_9, __pyx_int_1, 1, 1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 59, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_10);
+          __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+          if (unlikely(PyObject_SetItem(__pyx_t_4, __pyx_t_3, __pyx_t_10) < 0)) __PYX_ERR(0, 59, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+          __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+          __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+          /* "toolbelt/process_trees.pyx":60
+ *                     if existing_tree.matches(new_tree):
+ *                         self.unique_tree_counts[existing_id] += 1
+ *                         return False             # <<<<<<<<<<<<<<
+ *                 self.process_trees[new_tree.tree_id] = new_tree
+ *                 self.unique_tree_counts[new_tree.tree_id] = 1
+ */
+          __Pyx_XDECREF(__pyx_r);
+          __Pyx_INCREF(Py_False);
+          __pyx_r = Py_False;
+          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+          goto __pyx_L0;
+
+          /* "toolbelt/process_trees.pyx":58
+ *             if len(self.process_trees.keys()) > 0:
+ *                 for existing_id, existing_tree in self.process_trees.items():
+ *                     if existing_tree.matches(new_tree):             # <<<<<<<<<<<<<<
+ *                         self.unique_tree_counts[existing_id] += 1
+ *                         return False
+ */
         }
       }
-      __pyx_t_6 = (__pyx_t_9) ? __Pyx_PyObject_Call2Args(__pyx_t_7, __pyx_t_9, __pyx_v_new_tree) : __Pyx_PyObject_CallOneArg(__pyx_t_7, __pyx_v_new_tree);
-      __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 54, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_6);
-      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 54, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (__pyx_t_2) {
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-        /* "toolbelt/process_trees.pyx":55
- *             for existing_id, existing_tree in self.process_trees.items():
- *                 if existing_tree.matches(new_tree):
- *                     self.unique_tree_counts[existing_id] += 1             # <<<<<<<<<<<<<<
- *                     return False
- *             self.process_trees[new_tree.tree_id] = new_tree
+      /* "toolbelt/process_trees.pyx":61
+ *                         self.unique_tree_counts[existing_id] += 1
+ *                         return False
+ *                 self.process_trees[new_tree.tree_id] = new_tree             # <<<<<<<<<<<<<<
+ *                 self.unique_tree_counts[new_tree.tree_id] = 1
+ *                 return True
  */
-        __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_unique_tree_counts); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 55, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_6);
-        __Pyx_INCREF(__pyx_v_existing_id);
-        __pyx_t_7 = __pyx_v_existing_id;
-        __pyx_t_9 = __Pyx_PyObject_GetItem(__pyx_t_6, __pyx_t_7); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 55, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_9);
-        __pyx_t_10 = __Pyx_PyInt_AddObjC(__pyx_t_9, __pyx_int_1, 1, 1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 55, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_10);
-        __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        if (unlikely(PyObject_SetItem(__pyx_t_6, __pyx_t_7, __pyx_t_10) < 0)) __PYX_ERR(0, 55, __pyx_L1_error)
-        __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_new_tree, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 61, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (unlikely(PyObject_SetItem(__pyx_t_1, __pyx_t_4, __pyx_v_new_tree) < 0)) __PYX_ERR(0, 61, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-        /* "toolbelt/process_trees.pyx":56
- *                 if existing_tree.matches(new_tree):
- *                     self.unique_tree_counts[existing_id] += 1
- *                     return False             # <<<<<<<<<<<<<<
- *             self.process_trees[new_tree.tree_id] = new_tree
- *             self.unique_tree_counts[new_tree.tree_id] = 1
+      /* "toolbelt/process_trees.pyx":62
+ *                         return False
+ *                 self.process_trees[new_tree.tree_id] = new_tree
+ *                 self.unique_tree_counts[new_tree.tree_id] = 1             # <<<<<<<<<<<<<<
+ *                 return True
+ *             else:
  */
-        __Pyx_XDECREF(__pyx_r);
-        __Pyx_INCREF(Py_False);
-        __pyx_r = Py_False;
-        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        goto __pyx_L0;
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_unique_tree_counts); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 62, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_new_tree, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 62, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      if (unlikely(PyObject_SetItem(__pyx_t_4, __pyx_t_1, __pyx_int_1) < 0)) __PYX_ERR(0, 62, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-        /* "toolbelt/process_trees.pyx":54
+      /* "toolbelt/process_trees.pyx":63
+ *                 self.process_trees[new_tree.tree_id] = new_tree
+ *                 self.unique_tree_counts[new_tree.tree_id] = 1
+ *                 return True             # <<<<<<<<<<<<<<
+ *             else:
+ *                 self.process_trees[new_tree.tree_id] = new_tree
+ */
+      __Pyx_XDECREF(__pyx_r);
+      __Pyx_INCREF(Py_True);
+      __pyx_r = Py_True;
+      goto __pyx_L0;
+
+      /* "toolbelt/process_trees.pyx":56
+ *         """
  *         if self.unique_only:
- *             for existing_id, existing_tree in self.process_trees.items():
- *                 if existing_tree.matches(new_tree):             # <<<<<<<<<<<<<<
- *                     self.unique_tree_counts[existing_id] += 1
- *                     return False
+ *             if len(self.process_trees.keys()) > 0:             # <<<<<<<<<<<<<<
+ *                 for existing_id, existing_tree in self.process_trees.items():
+ *                     if existing_tree.matches(new_tree):
  */
-      }
     }
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "toolbelt/process_trees.pyx":57
- *                     self.unique_tree_counts[existing_id] += 1
- *                     return False
- *             self.process_trees[new_tree.tree_id] = new_tree             # <<<<<<<<<<<<<<
- *             self.unique_tree_counts[new_tree.tree_id] = 1
- *             return True
+    /* "toolbelt/process_trees.pyx":65
+ *                 return True
+ *             else:
+ *                 self.process_trees[new_tree.tree_id] = new_tree             # <<<<<<<<<<<<<<
+ *                 self.unique_tree_counts[new_tree.tree_id] = 1
+ *                 return True
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 57, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_new_tree, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 57, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    if (unlikely(PyObject_SetItem(__pyx_t_1, __pyx_t_6, __pyx_v_new_tree) < 0)) __PYX_ERR(0, 57, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    /*else*/ {
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 65, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_new_tree, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 65, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (unlikely(PyObject_SetItem(__pyx_t_1, __pyx_t_4, __pyx_v_new_tree) < 0)) __PYX_ERR(0, 65, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "toolbelt/process_trees.pyx":58
- *                     return False
- *             self.process_trees[new_tree.tree_id] = new_tree
- *             self.unique_tree_counts[new_tree.tree_id] = 1             # <<<<<<<<<<<<<<
- *             return True
+      /* "toolbelt/process_trees.pyx":66
+ *             else:
+ *                 self.process_trees[new_tree.tree_id] = new_tree
+ *                 self.unique_tree_counts[new_tree.tree_id] = 1             # <<<<<<<<<<<<<<
+ *                 return True
  *         else:
  */
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_unique_tree_counts); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 58, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_new_tree, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 58, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    if (unlikely(PyObject_SetItem(__pyx_t_6, __pyx_t_1, __pyx_int_1) < 0)) __PYX_ERR(0, 58, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_unique_tree_counts); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 66, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_new_tree, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 66, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      if (unlikely(PyObject_SetItem(__pyx_t_4, __pyx_t_1, __pyx_int_1) < 0)) __PYX_ERR(0, 66, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "toolbelt/process_trees.pyx":59
- *             self.process_trees[new_tree.tree_id] = new_tree
- *             self.unique_tree_counts[new_tree.tree_id] = 1
- *             return True             # <<<<<<<<<<<<<<
+      /* "toolbelt/process_trees.pyx":67
+ *                 self.process_trees[new_tree.tree_id] = new_tree
+ *                 self.unique_tree_counts[new_tree.tree_id] = 1
+ *                 return True             # <<<<<<<<<<<<<<
  *         else:
  *             self.process_trees[new_tree.tree_id] = new_tree
  */
-    __Pyx_XDECREF(__pyx_r);
-    __Pyx_INCREF(Py_True);
-    __pyx_r = Py_True;
-    goto __pyx_L0;
+      __Pyx_XDECREF(__pyx_r);
+      __Pyx_INCREF(Py_True);
+      __pyx_r = Py_True;
+      goto __pyx_L0;
+    }
 
-    /* "toolbelt/process_trees.pyx":52
+    /* "toolbelt/process_trees.pyx":55
  *                   if the host is not unique-only, it returns nothing
  *         """
  *         if self.unique_only:             # <<<<<<<<<<<<<<
- *             for existing_id, existing_tree in self.process_trees.items():
- *                 if existing_tree.matches(new_tree):
+ *             if len(self.process_trees.keys()) > 0:
+ *                 for existing_id, existing_tree in self.process_trees.items():
  */
   }
 
-  /* "toolbelt/process_trees.pyx":61
- *             return True
+  /* "toolbelt/process_trees.pyx":69
+ *                 return True
  *         else:
  *             self.process_trees[new_tree.tree_id] = new_tree             # <<<<<<<<<<<<<<
  * 
  *     def del_tree(self, tree_to_remove):
  */
   /*else*/ {
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_new_tree, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 61, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    if (unlikely(PyObject_SetItem(__pyx_t_1, __pyx_t_6, __pyx_v_new_tree) < 0)) __PYX_ERR(0, 61, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_new_tree, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 69, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    if (unlikely(PyObject_SetItem(__pyx_t_1, __pyx_t_4, __pyx_v_new_tree) < 0)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
 
-  /* "toolbelt/process_trees.pyx":45
- *         return hashlib.md5(str(np.random.rand()).encode('utf8')).hexdigest()[:7]
+  /* "toolbelt/process_trees.pyx":48
+ *         return [tree for _, tree in self.process_trees.items()]
  * 
  *     def add_tree(self, new_tree):             # <<<<<<<<<<<<<<
  *         """
@@ -3025,8 +3237,8 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_8add_tree(CYTHON_UNUSE
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_6);
-  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_9);
   __Pyx_XDECREF(__pyx_t_10);
   __Pyx_AddTraceback("toolbelt.process_trees.Host.add_tree", __pyx_clineno, __pyx_lineno, __pyx_filename);
@@ -3039,7 +3251,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_8add_tree(CYTHON_UNUSE
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":63
+/* "toolbelt/process_trees.pyx":71
  *             self.process_trees[new_tree.tree_id] = new_tree
  * 
  *     def del_tree(self, tree_to_remove):             # <<<<<<<<<<<<<<
@@ -3048,9 +3260,9 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_8add_tree(CYTHON_UNUSE
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_11del_tree(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_11del_tree = {"del_tree", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_4Host_11del_tree, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_11del_tree(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_13del_tree(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_13del_tree = {"del_tree", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_4Host_13del_tree, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_13del_tree(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_self = 0;
   PyObject *__pyx_v_tree_to_remove = 0;
   PyObject *__pyx_r = 0;
@@ -3079,11 +3291,11 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_11del_tree(PyObject *_
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_tree_to_remove)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("del_tree", 1, 2, 2, 1); __PYX_ERR(0, 63, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("del_tree", 1, 2, 2, 1); __PYX_ERR(0, 71, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "del_tree") < 0)) __PYX_ERR(0, 63, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "del_tree") < 0)) __PYX_ERR(0, 71, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
       goto __pyx_L5_argtuple_error;
@@ -3096,22 +3308,22 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_11del_tree(PyObject *_
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("del_tree", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 63, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("del_tree", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 71, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("toolbelt.process_trees.Host.del_tree", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_10del_tree(__pyx_self, __pyx_v_self, __pyx_v_tree_to_remove);
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_12del_tree(__pyx_self, __pyx_v_self, __pyx_v_tree_to_remove);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_10del_tree(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_tree_to_remove) {
-  PyObject *__pyx_7genexpr__pyx_v__id = NULL;
-  PyObject *__pyx_7genexpr__pyx_v__tree = NULL;
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_12del_tree(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_tree_to_remove) {
+  PyObject *__pyx_8genexpr1__pyx_v__id = NULL;
+  PyObject *__pyx_8genexpr1__pyx_v__tree = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_t_1;
@@ -3127,7 +3339,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_10del_tree(CYTHON_UNUS
   __Pyx_RefNannySetupContext("del_tree", 0);
   __Pyx_INCREF(__pyx_v_tree_to_remove);
 
-  /* "toolbelt/process_trees.pyx":64
+  /* "toolbelt/process_trees.pyx":72
  * 
  *     def del_tree(self, tree_to_remove):
  *         if not isinstance(tree_to_remove, str):             # <<<<<<<<<<<<<<
@@ -3138,19 +3350,19 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_10del_tree(CYTHON_UNUS
   __pyx_t_2 = ((!(__pyx_t_1 != 0)) != 0);
   if (__pyx_t_2) {
 
-    /* "toolbelt/process_trees.pyx":65
+    /* "toolbelt/process_trees.pyx":73
  *     def del_tree(self, tree_to_remove):
  *         if not isinstance(tree_to_remove, str):
  *             tree_to_remove = tree_to_remove.tree_id             # <<<<<<<<<<<<<<
  *         self.process_trees = {_id: _tree for _id, _tree in self.process_trees.items() if _id != tree_to_remove}
  * 
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_tree_to_remove, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 65, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_tree_to_remove, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 73, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF_SET(__pyx_v_tree_to_remove, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "toolbelt/process_trees.pyx":64
+    /* "toolbelt/process_trees.pyx":72
  * 
  *     def del_tree(self, tree_to_remove):
  *         if not isinstance(tree_to_remove, str):             # <<<<<<<<<<<<<<
@@ -3159,7 +3371,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_10del_tree(CYTHON_UNUS
  */
   }
 
-  /* "toolbelt/process_trees.pyx":66
+  /* "toolbelt/process_trees.pyx":74
  *         if not isinstance(tree_to_remove, str):
  *             tree_to_remove = tree_to_remove.tree_id
  *         self.process_trees = {_id: _tree for _id, _tree in self.process_trees.items() if _id != tree_to_remove}             # <<<<<<<<<<<<<<
@@ -3167,16 +3379,16 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_10del_tree(CYTHON_UNUS
  *     def to_dict(self):
  */
   { /* enter inner scope */
-    __pyx_t_3 = PyDict_New(); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 66, __pyx_L6_error)
+    __pyx_t_3 = PyDict_New(); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 74, __pyx_L6_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_5 = 0;
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 66, __pyx_L6_error)
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 74, __pyx_L6_error)
     __Pyx_GOTREF(__pyx_t_8);
     if (unlikely(__pyx_t_8 == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-      __PYX_ERR(0, 66, __pyx_L6_error)
+      __PYX_ERR(0, 74, __pyx_L6_error)
     }
-    __pyx_t_9 = __Pyx_dict_iterator(__pyx_t_8, 0, __pyx_n_s_items, (&__pyx_t_6), (&__pyx_t_7)); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 66, __pyx_L6_error)
+    __pyx_t_9 = __Pyx_dict_iterator(__pyx_t_8, 0, __pyx_n_s_items, (&__pyx_t_6), (&__pyx_t_7)); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 74, __pyx_L6_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_XDECREF(__pyx_t_4);
@@ -3185,34 +3397,34 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_10del_tree(CYTHON_UNUS
     while (1) {
       __pyx_t_10 = __Pyx_dict_iter_next(__pyx_t_4, __pyx_t_6, &__pyx_t_5, &__pyx_t_9, &__pyx_t_8, NULL, __pyx_t_7);
       if (unlikely(__pyx_t_10 == 0)) break;
-      if (unlikely(__pyx_t_10 == -1)) __PYX_ERR(0, 66, __pyx_L6_error)
+      if (unlikely(__pyx_t_10 == -1)) __PYX_ERR(0, 74, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_GOTREF(__pyx_t_8);
-      __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v__id, __pyx_t_9);
+      __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v__id, __pyx_t_9);
       __pyx_t_9 = 0;
-      __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v__tree, __pyx_t_8);
+      __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v__tree, __pyx_t_8);
       __pyx_t_8 = 0;
-      __pyx_t_8 = PyObject_RichCompare(__pyx_7genexpr__pyx_v__id, __pyx_v_tree_to_remove, Py_NE); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 66, __pyx_L6_error)
-      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 66, __pyx_L6_error)
+      __pyx_t_8 = PyObject_RichCompare(__pyx_8genexpr1__pyx_v__id, __pyx_v_tree_to_remove, Py_NE); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 74, __pyx_L6_error)
+      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 74, __pyx_L6_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       if (__pyx_t_2) {
-        if (unlikely(PyDict_SetItem(__pyx_t_3, (PyObject*)__pyx_7genexpr__pyx_v__id, (PyObject*)__pyx_7genexpr__pyx_v__tree))) __PYX_ERR(0, 66, __pyx_L6_error)
+        if (unlikely(PyDict_SetItem(__pyx_t_3, (PyObject*)__pyx_8genexpr1__pyx_v__id, (PyObject*)__pyx_8genexpr1__pyx_v__tree))) __PYX_ERR(0, 74, __pyx_L6_error)
       }
     }
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __Pyx_XDECREF(__pyx_7genexpr__pyx_v__id); __pyx_7genexpr__pyx_v__id = 0;
-    __Pyx_XDECREF(__pyx_7genexpr__pyx_v__tree); __pyx_7genexpr__pyx_v__tree = 0;
+    __Pyx_XDECREF(__pyx_8genexpr1__pyx_v__id); __pyx_8genexpr1__pyx_v__id = 0;
+    __Pyx_XDECREF(__pyx_8genexpr1__pyx_v__tree); __pyx_8genexpr1__pyx_v__tree = 0;
     goto __pyx_L10_exit_scope;
     __pyx_L6_error:;
-    __Pyx_XDECREF(__pyx_7genexpr__pyx_v__id); __pyx_7genexpr__pyx_v__id = 0;
-    __Pyx_XDECREF(__pyx_7genexpr__pyx_v__tree); __pyx_7genexpr__pyx_v__tree = 0;
+    __Pyx_XDECREF(__pyx_8genexpr1__pyx_v__id); __pyx_8genexpr1__pyx_v__id = 0;
+    __Pyx_XDECREF(__pyx_8genexpr1__pyx_v__tree); __pyx_8genexpr1__pyx_v__tree = 0;
     goto __pyx_L1_error;
     __pyx_L10_exit_scope:;
   } /* exit inner scope */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_process_trees, __pyx_t_3) < 0) __PYX_ERR(0, 66, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_process_trees, __pyx_t_3) < 0) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "toolbelt/process_trees.pyx":63
+  /* "toolbelt/process_trees.pyx":71
  *             self.process_trees[new_tree.tree_id] = new_tree
  * 
  *     def del_tree(self, tree_to_remove):             # <<<<<<<<<<<<<<
@@ -3231,15 +3443,15 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_10del_tree(CYTHON_UNUS
   __Pyx_AddTraceback("toolbelt.process_trees.Host.del_tree", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
-  __Pyx_XDECREF(__pyx_7genexpr__pyx_v__id);
-  __Pyx_XDECREF(__pyx_7genexpr__pyx_v__tree);
+  __Pyx_XDECREF(__pyx_8genexpr1__pyx_v__id);
+  __Pyx_XDECREF(__pyx_8genexpr1__pyx_v__tree);
   __Pyx_XDECREF(__pyx_v_tree_to_remove);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":68
+/* "toolbelt/process_trees.pyx":76
  *         self.process_trees = {_id: _tree for _id, _tree in self.process_trees.items() if _id != tree_to_remove}
  * 
  *     def to_dict(self):             # <<<<<<<<<<<<<<
@@ -3248,20 +3460,20 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_10del_tree(CYTHON_UNUS
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_13to_dict(PyObject *__pyx_self, PyObject *__pyx_v_self); /*proto*/
-static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_13to_dict = {"to_dict", (PyCFunction)__pyx_pw_8toolbelt_13process_trees_4Host_13to_dict, METH_O, 0};
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_13to_dict(PyObject *__pyx_self, PyObject *__pyx_v_self) {
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_15to_dict(PyObject *__pyx_self, PyObject *__pyx_v_self); /*proto*/
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_15to_dict = {"to_dict", (PyCFunction)__pyx_pw_8toolbelt_13process_trees_4Host_15to_dict, METH_O, 0};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_15to_dict(PyObject *__pyx_self, PyObject *__pyx_v_self) {
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("to_dict (wrapper)", 0);
-  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_12to_dict(__pyx_self, ((PyObject *)__pyx_v_self));
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_14to_dict(__pyx_self, ((PyObject *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_12to_dict(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_dict(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
   PyObject *__pyx_v_ret_val = NULL;
   PyObject *__pyx_v_trees_dict = NULL;
   PyObject *__pyx_v_tree_id = NULL;
@@ -3279,108 +3491,108 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_12to_dict(CYTHON_UNUSE
   PyObject *__pyx_t_9 = NULL;
   __Pyx_RefNannySetupContext("to_dict", 0);
 
-  /* "toolbelt/process_trees.pyx":69
+  /* "toolbelt/process_trees.pyx":77
  * 
  *     def to_dict(self):
  *         ret_val = {'host_id': self.host_id,             # <<<<<<<<<<<<<<
  *                    'host_name': self.name,
  *                    'op_sys': self.os,
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_host_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_host_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_host_id, __pyx_t_2) < 0) __PYX_ERR(0, 69, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_host_id, __pyx_t_2) < 0) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "toolbelt/process_trees.pyx":70
+  /* "toolbelt/process_trees.pyx":78
  *     def to_dict(self):
  *         ret_val = {'host_id': self.host_id,
  *                    'host_name': self.name,             # <<<<<<<<<<<<<<
  *                    'op_sys': self.os,
  *                    'ip': self.ip,
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_host_name, __pyx_t_2) < 0) __PYX_ERR(0, 69, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_host_name, __pyx_t_2) < 0) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "toolbelt/process_trees.pyx":71
+  /* "toolbelt/process_trees.pyx":79
  *         ret_val = {'host_id': self.host_id,
  *                    'host_name': self.name,
  *                    'op_sys': self.os,             # <<<<<<<<<<<<<<
  *                    'ip': self.ip,
  *                    'env': self.env,
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_os); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_os); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 79, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_op_sys, __pyx_t_2) < 0) __PYX_ERR(0, 69, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_op_sys, __pyx_t_2) < 0) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "toolbelt/process_trees.pyx":72
+  /* "toolbelt/process_trees.pyx":80
  *                    'host_name': self.name,
  *                    'op_sys': self.os,
  *                    'ip': self.ip,             # <<<<<<<<<<<<<<
  *                    'env': self.env,
  *                    'unique': self.unique_only}
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_ip); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 72, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_ip); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_ip, __pyx_t_2) < 0) __PYX_ERR(0, 69, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_ip, __pyx_t_2) < 0) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "toolbelt/process_trees.pyx":73
+  /* "toolbelt/process_trees.pyx":81
  *                    'op_sys': self.os,
  *                    'ip': self.ip,
  *                    'env': self.env,             # <<<<<<<<<<<<<<
  *                    'unique': self.unique_only}
  *         if self.unique_only:
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_env); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 73, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_env); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 81, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_env, __pyx_t_2) < 0) __PYX_ERR(0, 69, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_env, __pyx_t_2) < 0) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "toolbelt/process_trees.pyx":74
+  /* "toolbelt/process_trees.pyx":82
  *                    'ip': self.ip,
  *                    'env': self.env,
  *                    'unique': self.unique_only}             # <<<<<<<<<<<<<<
  *         if self.unique_only:
  *             ret_val['unique_tree_counts'] = self.unique_tree_counts
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_unique_only); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 74, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_unique_only); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 82, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_unique_2, __pyx_t_2) < 0) __PYX_ERR(0, 69, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_unique_2, __pyx_t_2) < 0) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_ret_val = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "toolbelt/process_trees.pyx":75
+  /* "toolbelt/process_trees.pyx":83
  *                    'env': self.env,
  *                    'unique': self.unique_only}
  *         if self.unique_only:             # <<<<<<<<<<<<<<
  *             ret_val['unique_tree_counts'] = self.unique_tree_counts
  *         trees_dict = dict()
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_unique_only); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_unique_only); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_3 < 0)) __PYX_ERR(0, 75, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_3 < 0)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_3) {
 
-    /* "toolbelt/process_trees.pyx":76
+    /* "toolbelt/process_trees.pyx":84
  *                    'unique': self.unique_only}
  *         if self.unique_only:
  *             ret_val['unique_tree_counts'] = self.unique_tree_counts             # <<<<<<<<<<<<<<
  *         trees_dict = dict()
  *         for tree_id, tree in self.process_trees.items():
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_unique_tree_counts); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_unique_tree_counts); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (unlikely(PyDict_SetItem(__pyx_v_ret_val, __pyx_n_u_unique_tree_counts, __pyx_t_1) < 0)) __PYX_ERR(0, 76, __pyx_L1_error)
+    if (unlikely(PyDict_SetItem(__pyx_v_ret_val, __pyx_n_u_unique_tree_counts, __pyx_t_1) < 0)) __PYX_ERR(0, 84, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "toolbelt/process_trees.pyx":75
+    /* "toolbelt/process_trees.pyx":83
  *                    'env': self.env,
  *                    'unique': self.unique_only}
  *         if self.unique_only:             # <<<<<<<<<<<<<<
@@ -3389,19 +3601,19 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_12to_dict(CYTHON_UNUSE
  */
   }
 
-  /* "toolbelt/process_trees.pyx":77
+  /* "toolbelt/process_trees.pyx":85
  *         if self.unique_only:
  *             ret_val['unique_tree_counts'] = self.unique_tree_counts
  *         trees_dict = dict()             # <<<<<<<<<<<<<<
  *         for tree_id, tree in self.process_trees.items():
  *             trees_dict[tree_id] = tree.to_dict()
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 85, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_trees_dict = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "toolbelt/process_trees.pyx":78
+  /* "toolbelt/process_trees.pyx":86
  *             ret_val['unique_tree_counts'] = self.unique_tree_counts
  *         trees_dict = dict()
  *         for tree_id, tree in self.process_trees.items():             # <<<<<<<<<<<<<<
@@ -3409,13 +3621,13 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_12to_dict(CYTHON_UNUSE
  *         ret_val['trees'] = trees_dict
  */
   __pyx_t_4 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 86, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (unlikely(__pyx_t_2 == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 78, __pyx_L1_error)
+    __PYX_ERR(0, 86, __pyx_L1_error)
   }
-  __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_2, 0, __pyx_n_s_items, (&__pyx_t_5), (&__pyx_t_6)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_2, 0, __pyx_n_s_items, (&__pyx_t_5), (&__pyx_t_6)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 86, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_XDECREF(__pyx_t_1);
@@ -3424,7 +3636,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_12to_dict(CYTHON_UNUSE
   while (1) {
     __pyx_t_8 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_5, &__pyx_t_4, &__pyx_t_7, &__pyx_t_2, NULL, __pyx_t_6);
     if (unlikely(__pyx_t_8 == 0)) break;
-    if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 78, __pyx_L1_error)
+    if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 86, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_XDECREF_SET(__pyx_v_tree_id, __pyx_t_7);
@@ -3432,14 +3644,14 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_12to_dict(CYTHON_UNUSE
     __Pyx_XDECREF_SET(__pyx_v_tree, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":79
+    /* "toolbelt/process_trees.pyx":87
  *         trees_dict = dict()
  *         for tree_id, tree in self.process_trees.items():
  *             trees_dict[tree_id] = tree.to_dict()             # <<<<<<<<<<<<<<
  *         ret_val['trees'] = trees_dict
  *         return ret_val
  */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_tree, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 79, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_tree, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 87, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_9 = NULL;
     if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_7))) {
@@ -3453,24 +3665,24 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_12to_dict(CYTHON_UNUSE
     }
     __pyx_t_2 = (__pyx_t_9) ? __Pyx_PyObject_CallOneArg(__pyx_t_7, __pyx_t_9) : __Pyx_PyObject_CallNoArg(__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 79, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 87, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(PyDict_SetItem(__pyx_v_trees_dict, __pyx_v_tree_id, __pyx_t_2) < 0)) __PYX_ERR(0, 79, __pyx_L1_error)
+    if (unlikely(PyDict_SetItem(__pyx_v_trees_dict, __pyx_v_tree_id, __pyx_t_2) < 0)) __PYX_ERR(0, 87, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "toolbelt/process_trees.pyx":80
+  /* "toolbelt/process_trees.pyx":88
  *         for tree_id, tree in self.process_trees.items():
  *             trees_dict[tree_id] = tree.to_dict()
  *         ret_val['trees'] = trees_dict             # <<<<<<<<<<<<<<
  *         return ret_val
  * 
  */
-  if (unlikely(PyDict_SetItem(__pyx_v_ret_val, __pyx_n_u_trees, __pyx_v_trees_dict) < 0)) __PYX_ERR(0, 80, __pyx_L1_error)
+  if (unlikely(PyDict_SetItem(__pyx_v_ret_val, __pyx_n_u_trees, __pyx_v_trees_dict) < 0)) __PYX_ERR(0, 88, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":81
+  /* "toolbelt/process_trees.pyx":89
  *             trees_dict[tree_id] = tree.to_dict()
  *         ret_val['trees'] = trees_dict
  *         return ret_val             # <<<<<<<<<<<<<<
@@ -3482,7 +3694,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_12to_dict(CYTHON_UNUSE
   __pyx_r = __pyx_v_ret_val;
   goto __pyx_L0;
 
-  /* "toolbelt/process_trees.pyx":68
+  /* "toolbelt/process_trees.pyx":76
  *         self.process_trees = {_id: _tree for _id, _tree in self.process_trees.items() if _id != tree_to_remove}
  * 
  *     def to_dict(self):             # <<<<<<<<<<<<<<
@@ -3508,7 +3720,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_12to_dict(CYTHON_UNUSE
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":83
+/* "toolbelt/process_trees.pyx":91
  *         return ret_val
  * 
  *     def to_json(self, filepath=None, indent=4):             # <<<<<<<<<<<<<<
@@ -3517,9 +3729,9 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_12to_dict(CYTHON_UNUSE
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_15to_json(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_15to_json = {"to_json", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_4Host_15to_json, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_15to_json(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_17to_json(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_17to_json = {"to_json", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_4Host_17to_json, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_17to_json(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_self = 0;
   PyObject *__pyx_v_filepath = 0;
   PyObject *__pyx_v_indent = 0;
@@ -3563,7 +3775,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_15to_json(PyObject *__
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "to_json") < 0)) __PYX_ERR(0, 83, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "to_json") < 0)) __PYX_ERR(0, 91, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
@@ -3582,20 +3794,20 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_15to_json(PyObject *__
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("to_json", 0, 1, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 83, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("to_json", 0, 1, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 91, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("toolbelt.process_trees.Host.to_json", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_14to_json(__pyx_self, __pyx_v_self, __pyx_v_filepath, __pyx_v_indent);
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_16to_json(__pyx_self, __pyx_v_self, __pyx_v_filepath, __pyx_v_indent);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_filepath, PyObject *__pyx_v_indent) {
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_16to_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_filepath, PyObject *__pyx_v_indent) {
   PyObject *__pyx_v_f = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -3612,18 +3824,18 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
   PyObject *__pyx_t_11 = NULL;
   __Pyx_RefNannySetupContext("to_json", 0);
 
-  /* "toolbelt/process_trees.pyx":84
+  /* "toolbelt/process_trees.pyx":92
  * 
  *     def to_json(self, filepath=None, indent=4):
  *         if not filepath:             # <<<<<<<<<<<<<<
  *             return json.dumps(self.to_dict(), indent=indent)
  *         else:
  */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_filepath); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_filepath); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 92, __pyx_L1_error)
   __pyx_t_2 = ((!__pyx_t_1) != 0);
   if (__pyx_t_2) {
 
-    /* "toolbelt/process_trees.pyx":85
+    /* "toolbelt/process_trees.pyx":93
  *     def to_json(self, filepath=None, indent=4):
  *         if not filepath:
  *             return json.dumps(self.to_dict(), indent=indent)             # <<<<<<<<<<<<<<
@@ -3631,12 +3843,12 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
  *             with open(filepath, 'w') as f:
  */
     __Pyx_XDECREF(__pyx_r);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_json); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_json); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 93, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_dumps); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_dumps); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 93, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 93, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_6 = NULL;
     if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_5))) {
@@ -3650,18 +3862,18 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
     }
     __pyx_t_3 = (__pyx_t_6) ? __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_t_6) : __Pyx_PyObject_CallNoArg(__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 85, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 93, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = PyTuple_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __pyx_t_5 = PyTuple_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 93, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GIVEREF(__pyx_t_3);
     PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_3);
     __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 93, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_indent, __pyx_v_indent) < 0) __PYX_ERR(0, 85, __pyx_L1_error)
-    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 85, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_indent, __pyx_v_indent) < 0) __PYX_ERR(0, 93, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 93, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -3670,7 +3882,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
     __pyx_t_6 = 0;
     goto __pyx_L0;
 
-    /* "toolbelt/process_trees.pyx":84
+    /* "toolbelt/process_trees.pyx":92
  * 
  *     def to_json(self, filepath=None, indent=4):
  *         if not filepath:             # <<<<<<<<<<<<<<
@@ -3679,7 +3891,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
  */
   }
 
-  /* "toolbelt/process_trees.pyx":87
+  /* "toolbelt/process_trees.pyx":95
  *             return json.dumps(self.to_dict(), indent=indent)
  *         else:
  *             with open(filepath, 'w') as f:             # <<<<<<<<<<<<<<
@@ -3688,7 +3900,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
  */
   /*else*/ {
     /*with:*/ {
-      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 87, __pyx_L1_error)
+      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 95, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_INCREF(__pyx_v_filepath);
       __Pyx_GIVEREF(__pyx_v_filepath);
@@ -3696,12 +3908,12 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
       __Pyx_INCREF(__pyx_n_u_w);
       __Pyx_GIVEREF(__pyx_n_u_w);
       PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_n_u_w);
-      __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_open, __pyx_t_6, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 87, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_open, __pyx_t_6, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 95, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __pyx_t_7 = __Pyx_PyObject_LookupSpecial(__pyx_t_3, __pyx_n_s_exit); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 87, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_LookupSpecial(__pyx_t_3, __pyx_n_s_exit); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 95, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_5 = __Pyx_PyObject_LookupSpecial(__pyx_t_3, __pyx_n_s_enter); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 87, __pyx_L4_error)
+      __pyx_t_5 = __Pyx_PyObject_LookupSpecial(__pyx_t_3, __pyx_n_s_enter); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 95, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_4 = NULL;
       if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_5))) {
@@ -3715,7 +3927,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
       }
       __pyx_t_6 = (__pyx_t_4) ? __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_t_4) : __Pyx_PyObject_CallNoArg(__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 87, __pyx_L4_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 95, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_5 = __pyx_t_6;
@@ -3733,19 +3945,19 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
             __pyx_v_f = __pyx_t_5;
             __pyx_t_5 = 0;
 
-            /* "toolbelt/process_trees.pyx":88
+            /* "toolbelt/process_trees.pyx":96
  *         else:
  *             with open(filepath, 'w') as f:
  *                 json.dump(self.to_dict(), f, indent=indent)             # <<<<<<<<<<<<<<
  * 
  *     def find_unique_trees(self, return_dict=False):
  */
-            __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_json); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 88, __pyx_L8_error)
+            __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_json); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 96, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_5);
-            __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_dump); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 88, __pyx_L8_error)
+            __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_dump); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 96, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_3);
             __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-            __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 88, __pyx_L8_error)
+            __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 96, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_6);
             __pyx_t_4 = NULL;
             if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_6))) {
@@ -3759,10 +3971,10 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
             }
             __pyx_t_5 = (__pyx_t_4) ? __Pyx_PyObject_CallOneArg(__pyx_t_6, __pyx_t_4) : __Pyx_PyObject_CallNoArg(__pyx_t_6);
             __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 88, __pyx_L8_error)
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 96, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_5);
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-            __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 88, __pyx_L8_error)
+            __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 96, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_6);
             __Pyx_GIVEREF(__pyx_t_5);
             PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_t_5);
@@ -3770,17 +3982,17 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
             __Pyx_GIVEREF(__pyx_v_f);
             PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_v_f);
             __pyx_t_5 = 0;
-            __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 88, __pyx_L8_error)
+            __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 96, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_5);
-            if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_indent, __pyx_v_indent) < 0) __PYX_ERR(0, 88, __pyx_L8_error)
-            __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_6, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 88, __pyx_L8_error)
+            if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_indent, __pyx_v_indent) < 0) __PYX_ERR(0, 96, __pyx_L8_error)
+            __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_6, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 96, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_4);
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
             __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
             __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-            /* "toolbelt/process_trees.pyx":87
+            /* "toolbelt/process_trees.pyx":95
  *             return json.dumps(self.to_dict(), indent=indent)
  *         else:
  *             with open(filepath, 'w') as f:             # <<<<<<<<<<<<<<
@@ -3799,20 +4011,20 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
           /*except:*/ {
             __Pyx_AddTraceback("toolbelt.process_trees.Host.to_json", __pyx_clineno, __pyx_lineno, __pyx_filename);
-            if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 87, __pyx_L10_except_error)
+            if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 95, __pyx_L10_except_error)
             __Pyx_GOTREF(__pyx_t_4);
             __Pyx_GOTREF(__pyx_t_5);
             __Pyx_GOTREF(__pyx_t_6);
-            __pyx_t_3 = PyTuple_Pack(3, __pyx_t_4, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 87, __pyx_L10_except_error)
+            __pyx_t_3 = PyTuple_Pack(3, __pyx_t_4, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 95, __pyx_L10_except_error)
             __Pyx_GOTREF(__pyx_t_3);
             __pyx_t_11 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_t_3, NULL);
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-            if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 87, __pyx_L10_except_error)
+            if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 95, __pyx_L10_except_error)
             __Pyx_GOTREF(__pyx_t_11);
             __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_11);
             __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-            if (__pyx_t_2 < 0) __PYX_ERR(0, 87, __pyx_L10_except_error)
+            if (__pyx_t_2 < 0) __PYX_ERR(0, 95, __pyx_L10_except_error)
             __pyx_t_1 = ((!(__pyx_t_2 != 0)) != 0);
             if (__pyx_t_1) {
               __Pyx_GIVEREF(__pyx_t_4);
@@ -3820,7 +4032,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
               __Pyx_XGIVEREF(__pyx_t_6);
               __Pyx_ErrRestoreWithState(__pyx_t_4, __pyx_t_5, __pyx_t_6);
               __pyx_t_4 = 0; __pyx_t_5 = 0; __pyx_t_6 = 0; 
-              __PYX_ERR(0, 87, __pyx_L10_except_error)
+              __PYX_ERR(0, 95, __pyx_L10_except_error)
             }
             __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
             __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -3846,7 +4058,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
           if (__pyx_t_7) {
             __pyx_t_10 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_tuple__4, NULL);
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 87, __pyx_L1_error)
+            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 95, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_10);
             __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
           }
@@ -3862,7 +4074,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
     }
   }
 
-  /* "toolbelt/process_trees.pyx":83
+  /* "toolbelt/process_trees.pyx":91
  *         return ret_val
  * 
  *     def to_json(self, filepath=None, indent=4):             # <<<<<<<<<<<<<<
@@ -3887,7 +4099,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":90
+/* "toolbelt/process_trees.pyx":98
  *                 json.dump(self.to_dict(), f, indent=indent)
  * 
  *     def find_unique_trees(self, return_dict=False):             # <<<<<<<<<<<<<<
@@ -3896,9 +4108,9 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_14to_json(CYTHON_UNUSE
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_17find_unique_trees(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_17find_unique_trees = {"find_unique_trees", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_4Host_17find_unique_trees, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_17find_unique_trees(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_19find_unique_trees(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_19find_unique_trees = {"find_unique_trees", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_4Host_19find_unique_trees, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_19find_unique_trees(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_self = 0;
   PyObject *__pyx_v_return_dict = 0;
   PyObject *__pyx_r = 0;
@@ -3932,7 +4144,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_17find_unique_trees(Py
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "find_unique_trees") < 0)) __PYX_ERR(0, 90, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "find_unique_trees") < 0)) __PYX_ERR(0, 98, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
@@ -3948,30 +4160,28 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_17find_unique_trees(Py
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("find_unique_trees", 0, 1, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 90, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("find_unique_trees", 0, 1, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 98, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("toolbelt.process_trees.Host.find_unique_trees", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_16find_unique_trees(__pyx_self, __pyx_v_self, __pyx_v_return_dict);
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_18find_unique_trees(__pyx_self, __pyx_v_self, __pyx_v_return_dict);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_16find_unique_trees(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_return_dict) {
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_18find_unique_trees(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_return_dict) {
   PyObject *__pyx_v_remaining_trees = NULL;
   PyObject *__pyx_v_match_dict = NULL;
   PyObject *__pyx_v_tree1_id = NULL;
-  PyObject *__pyx_v_tree1_obj = NULL;
-  PyObject *__pyx_v_tree2_id = NULL;
-  PyObject *__pyx_v_tree2_obj = NULL;
-  PyObject *__pyx_v_have_match = NULL;
-  PyObject *__pyx_8genexpr1__pyx_v__id = NULL;
-  CYTHON_UNUSED PyObject *__pyx_8genexpr1__pyx_v__ = NULL;
-  PyObject *__pyx_8genexpr2__pyx_v_x = NULL;
+  PyObject *__pyx_v_matches = NULL;
+  PyObject *__pyx_8genexpr2__pyx_v__id = NULL;
+  CYTHON_UNUSED PyObject *__pyx_8genexpr2__pyx_v__ = NULL;
+  PyObject *__pyx_8genexpr3__pyx_v_x = NULL;
+  PyObject *__pyx_8genexpr4__pyx_v_x = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -3983,12 +4193,13 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_16find_unique_trees(CY
   PyObject *__pyx_t_7 = NULL;
   int __pyx_t_8;
   int __pyx_t_9;
-  int __pyx_t_10;
-  int __pyx_t_11;
-  int __pyx_t_12;
+  PyObject *__pyx_t_10 = NULL;
+  PyObject *__pyx_t_11 = NULL;
+  PyObject *(*__pyx_t_12)(PyObject *);
+  int __pyx_t_13;
   __Pyx_RefNannySetupContext("find_unique_trees", 0);
 
-  /* "toolbelt/process_trees.pyx":91
+  /* "toolbelt/process_trees.pyx":99
  * 
  *     def find_unique_trees(self, return_dict=False):
  *         remaining_trees = [_id for _id, _ in self.process_trees.items()]             # <<<<<<<<<<<<<<
@@ -3996,16 +4207,16 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_16find_unique_trees(CY
  *         while len(remaining_trees) > 0:
  */
   { /* enter inner scope */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L5_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 99, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = 0;
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 91, __pyx_L5_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 99, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_6);
     if (unlikely(__pyx_t_6 == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-      __PYX_ERR(0, 91, __pyx_L5_error)
+      __PYX_ERR(0, 99, __pyx_L5_error)
     }
-    __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_6, 0, __pyx_n_s_items, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 91, __pyx_L5_error)
+    __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_6, 0, __pyx_n_s_items, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 99, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_2);
@@ -4014,369 +4225,290 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_16find_unique_trees(CY
     while (1) {
       __pyx_t_8 = __Pyx_dict_iter_next(__pyx_t_2, __pyx_t_4, &__pyx_t_3, &__pyx_t_7, &__pyx_t_6, NULL, __pyx_t_5);
       if (unlikely(__pyx_t_8 == 0)) break;
-      if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 91, __pyx_L5_error)
+      if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 99, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_GOTREF(__pyx_t_6);
-      __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v__id, __pyx_t_7);
+      __Pyx_XDECREF_SET(__pyx_8genexpr2__pyx_v__id, __pyx_t_7);
       __pyx_t_7 = 0;
-      __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v__, __pyx_t_6);
+      __Pyx_XDECREF_SET(__pyx_8genexpr2__pyx_v__, __pyx_t_6);
       __pyx_t_6 = 0;
-      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_8genexpr1__pyx_v__id))) __PYX_ERR(0, 91, __pyx_L5_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_8genexpr2__pyx_v__id))) __PYX_ERR(0, 99, __pyx_L5_error)
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_XDECREF(__pyx_8genexpr1__pyx_v__); __pyx_8genexpr1__pyx_v__ = 0;
-    __Pyx_XDECREF(__pyx_8genexpr1__pyx_v__id); __pyx_8genexpr1__pyx_v__id = 0;
+    __Pyx_XDECREF(__pyx_8genexpr2__pyx_v__); __pyx_8genexpr2__pyx_v__ = 0;
+    __Pyx_XDECREF(__pyx_8genexpr2__pyx_v__id); __pyx_8genexpr2__pyx_v__id = 0;
     goto __pyx_L8_exit_scope;
     __pyx_L5_error:;
-    __Pyx_XDECREF(__pyx_8genexpr1__pyx_v__); __pyx_8genexpr1__pyx_v__ = 0;
-    __Pyx_XDECREF(__pyx_8genexpr1__pyx_v__id); __pyx_8genexpr1__pyx_v__id = 0;
+    __Pyx_XDECREF(__pyx_8genexpr2__pyx_v__); __pyx_8genexpr2__pyx_v__ = 0;
+    __Pyx_XDECREF(__pyx_8genexpr2__pyx_v__id); __pyx_8genexpr2__pyx_v__id = 0;
     goto __pyx_L1_error;
     __pyx_L8_exit_scope:;
   } /* exit inner scope */
   __pyx_v_remaining_trees = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "toolbelt/process_trees.pyx":92
+  /* "toolbelt/process_trees.pyx":100
  *     def find_unique_trees(self, return_dict=False):
  *         remaining_trees = [_id for _id, _ in self.process_trees.items()]
  *         match_dict = dict()             # <<<<<<<<<<<<<<
  *         while len(remaining_trees) > 0:
  *             tree1_id = remaining_trees.pop(0)
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 92, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_match_dict = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "toolbelt/process_trees.pyx":93
+  /* "toolbelt/process_trees.pyx":101
  *         remaining_trees = [_id for _id, _ in self.process_trees.items()]
  *         match_dict = dict()
  *         while len(remaining_trees) > 0:             # <<<<<<<<<<<<<<
  *             tree1_id = remaining_trees.pop(0)
- *             tree1_obj = self.process_trees[tree1_id]
+ *             matches = [x for x in find_all_matches(self, self.process_trees[tree1_id]) if x!=tree1_id]
  */
   while (1) {
-    __pyx_t_4 = PyList_GET_SIZE(__pyx_v_remaining_trees); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 93, __pyx_L1_error)
+    __pyx_t_4 = PyList_GET_SIZE(__pyx_v_remaining_trees); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 101, __pyx_L1_error)
     __pyx_t_9 = ((__pyx_t_4 > 0) != 0);
     if (!__pyx_t_9) break;
 
-    /* "toolbelt/process_trees.pyx":94
+    /* "toolbelt/process_trees.pyx":102
  *         match_dict = dict()
  *         while len(remaining_trees) > 0:
  *             tree1_id = remaining_trees.pop(0)             # <<<<<<<<<<<<<<
- *             tree1_obj = self.process_trees[tree1_id]
- *             if len(remaining_trees) > 0:
+ *             matches = [x for x in find_all_matches(self, self.process_trees[tree1_id]) if x!=tree1_id]
+ *             if len(matches) > 0:
  */
-    __pyx_t_1 = __Pyx_PyList_PopIndex(__pyx_v_remaining_trees, __pyx_int_0, 0, 1, Py_ssize_t, PyInt_FromSsize_t); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 94, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyList_PopIndex(__pyx_v_remaining_trees, __pyx_int_0, 0, 1, Py_ssize_t, PyInt_FromSsize_t); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 102, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_XDECREF_SET(__pyx_v_tree1_id, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "toolbelt/process_trees.pyx":95
+    /* "toolbelt/process_trees.pyx":103
  *         while len(remaining_trees) > 0:
  *             tree1_id = remaining_trees.pop(0)
- *             tree1_obj = self.process_trees[tree1_id]             # <<<<<<<<<<<<<<
- *             if len(remaining_trees) > 0:
- *                 for tree2_id in remaining_trees:
+ *             matches = [x for x in find_all_matches(self, self.process_trees[tree1_id]) if x!=tree1_id]             # <<<<<<<<<<<<<<
+ *             if len(matches) > 0:
+ *                 match_dict[tree1_id] = matches
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_t_1, __pyx_v_tree1_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 95, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_XDECREF_SET(__pyx_v_tree1_obj, __pyx_t_2);
-    __pyx_t_2 = 0;
+    { /* enter inner scope */
+      __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 103, __pyx_L13_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_find_all_matches); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 103, __pyx_L13_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 103, __pyx_L13_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      __pyx_t_10 = __Pyx_PyObject_GetItem(__pyx_t_7, __pyx_v_tree1_id); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 103, __pyx_L13_error)
+      __Pyx_GOTREF(__pyx_t_10);
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __pyx_t_7 = NULL;
+      __pyx_t_5 = 0;
+      if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_6))) {
+        __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_6);
+        if (likely(__pyx_t_7)) {
+          PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_6);
+          __Pyx_INCREF(__pyx_t_7);
+          __Pyx_INCREF(function);
+          __Pyx_DECREF_SET(__pyx_t_6, function);
+          __pyx_t_5 = 1;
+        }
+      }
+      #if CYTHON_FAST_PYCALL
+      if (PyFunction_Check(__pyx_t_6)) {
+        PyObject *__pyx_temp[3] = {__pyx_t_7, __pyx_v_self, __pyx_t_10};
+        __pyx_t_2 = __Pyx_PyFunction_FastCall(__pyx_t_6, __pyx_temp+1-__pyx_t_5, 2+__pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 103, __pyx_L13_error)
+        __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+        __Pyx_GOTREF(__pyx_t_2);
+        __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+      } else
+      #endif
+      #if CYTHON_FAST_PYCCALL
+      if (__Pyx_PyFastCFunction_Check(__pyx_t_6)) {
+        PyObject *__pyx_temp[3] = {__pyx_t_7, __pyx_v_self, __pyx_t_10};
+        __pyx_t_2 = __Pyx_PyCFunction_FastCall(__pyx_t_6, __pyx_temp+1-__pyx_t_5, 2+__pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 103, __pyx_L13_error)
+        __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+        __Pyx_GOTREF(__pyx_t_2);
+        __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+      } else
+      #endif
+      {
+        __pyx_t_11 = PyTuple_New(2+__pyx_t_5); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 103, __pyx_L13_error)
+        __Pyx_GOTREF(__pyx_t_11);
+        if (__pyx_t_7) {
+          __Pyx_GIVEREF(__pyx_t_7); PyTuple_SET_ITEM(__pyx_t_11, 0, __pyx_t_7); __pyx_t_7 = NULL;
+        }
+        __Pyx_INCREF(__pyx_v_self);
+        __Pyx_GIVEREF(__pyx_v_self);
+        PyTuple_SET_ITEM(__pyx_t_11, 0+__pyx_t_5, __pyx_v_self);
+        __Pyx_GIVEREF(__pyx_t_10);
+        PyTuple_SET_ITEM(__pyx_t_11, 1+__pyx_t_5, __pyx_t_10);
+        __pyx_t_10 = 0;
+        __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_11, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 103, __pyx_L13_error)
+        __Pyx_GOTREF(__pyx_t_2);
+        __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+      }
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (likely(PyList_CheckExact(__pyx_t_2)) || PyTuple_CheckExact(__pyx_t_2)) {
+        __pyx_t_6 = __pyx_t_2; __Pyx_INCREF(__pyx_t_6); __pyx_t_4 = 0;
+        __pyx_t_12 = NULL;
+      } else {
+        __pyx_t_4 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 103, __pyx_L13_error)
+        __Pyx_GOTREF(__pyx_t_6);
+        __pyx_t_12 = Py_TYPE(__pyx_t_6)->tp_iternext; if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 103, __pyx_L13_error)
+      }
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+      for (;;) {
+        if (likely(!__pyx_t_12)) {
+          if (likely(PyList_CheckExact(__pyx_t_6))) {
+            if (__pyx_t_4 >= PyList_GET_SIZE(__pyx_t_6)) break;
+            #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+            __pyx_t_2 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely(0 < 0)) __PYX_ERR(0, 103, __pyx_L13_error)
+            #else
+            __pyx_t_2 = PySequence_ITEM(__pyx_t_6, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 103, __pyx_L13_error)
+            __Pyx_GOTREF(__pyx_t_2);
+            #endif
+          } else {
+            if (__pyx_t_4 >= PyTuple_GET_SIZE(__pyx_t_6)) break;
+            #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+            __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_6, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely(0 < 0)) __PYX_ERR(0, 103, __pyx_L13_error)
+            #else
+            __pyx_t_2 = PySequence_ITEM(__pyx_t_6, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 103, __pyx_L13_error)
+            __Pyx_GOTREF(__pyx_t_2);
+            #endif
+          }
+        } else {
+          __pyx_t_2 = __pyx_t_12(__pyx_t_6);
+          if (unlikely(!__pyx_t_2)) {
+            PyObject* exc_type = PyErr_Occurred();
+            if (exc_type) {
+              if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
+              else __PYX_ERR(0, 103, __pyx_L13_error)
+            }
+            break;
+          }
+          __Pyx_GOTREF(__pyx_t_2);
+        }
+        __Pyx_XDECREF_SET(__pyx_8genexpr3__pyx_v_x, __pyx_t_2);
+        __pyx_t_2 = 0;
+        __pyx_t_2 = PyObject_RichCompare(__pyx_8genexpr3__pyx_v_x, __pyx_v_tree1_id, Py_NE); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 103, __pyx_L13_error)
+        __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_9 < 0)) __PYX_ERR(0, 103, __pyx_L13_error)
+        __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+        if (__pyx_t_9) {
+          if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_8genexpr3__pyx_v_x))) __PYX_ERR(0, 103, __pyx_L13_error)
+        }
+      }
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_XDECREF(__pyx_8genexpr3__pyx_v_x); __pyx_8genexpr3__pyx_v_x = 0;
+      goto __pyx_L17_exit_scope;
+      __pyx_L13_error:;
+      __Pyx_XDECREF(__pyx_8genexpr3__pyx_v_x); __pyx_8genexpr3__pyx_v_x = 0;
+      goto __pyx_L1_error;
+      __pyx_L17_exit_scope:;
+    } /* exit inner scope */
+    __Pyx_XDECREF_SET(__pyx_v_matches, ((PyObject*)__pyx_t_1));
+    __pyx_t_1 = 0;
 
-    /* "toolbelt/process_trees.pyx":96
+    /* "toolbelt/process_trees.pyx":104
  *             tree1_id = remaining_trees.pop(0)
- *             tree1_obj = self.process_trees[tree1_id]
- *             if len(remaining_trees) > 0:             # <<<<<<<<<<<<<<
- *                 for tree2_id in remaining_trees:
- *                     tree2_obj = self.process_trees[tree2_id]
+ *             matches = [x for x in find_all_matches(self, self.process_trees[tree1_id]) if x!=tree1_id]
+ *             if len(matches) > 0:             # <<<<<<<<<<<<<<
+ *                 match_dict[tree1_id] = matches
+ *             else:
  */
-    __pyx_t_4 = PyList_GET_SIZE(__pyx_v_remaining_trees); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 96, __pyx_L1_error)
+    __pyx_t_4 = PyList_GET_SIZE(__pyx_v_matches); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 104, __pyx_L1_error)
     __pyx_t_9 = ((__pyx_t_4 > 0) != 0);
     if (__pyx_t_9) {
 
-      /* "toolbelt/process_trees.pyx":97
- *             tree1_obj = self.process_trees[tree1_id]
- *             if len(remaining_trees) > 0:
- *                 for tree2_id in remaining_trees:             # <<<<<<<<<<<<<<
- *                     tree2_obj = self.process_trees[tree2_id]
- *                     have_match = tree1_obj.matches(tree2_obj)
- */
-      __pyx_t_2 = __pyx_v_remaining_trees; __Pyx_INCREF(__pyx_t_2); __pyx_t_4 = 0;
-      for (;;) {
-        if (__pyx_t_4 >= PyList_GET_SIZE(__pyx_t_2)) break;
-        #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_1 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_4); __Pyx_INCREF(__pyx_t_1); __pyx_t_4++; if (unlikely(0 < 0)) __PYX_ERR(0, 97, __pyx_L1_error)
-        #else
-        __pyx_t_1 = PySequence_ITEM(__pyx_t_2, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        #endif
-        __Pyx_XDECREF_SET(__pyx_v_tree2_id, __pyx_t_1);
-        __pyx_t_1 = 0;
-
-        /* "toolbelt/process_trees.pyx":98
- *             if len(remaining_trees) > 0:
- *                 for tree2_id in remaining_trees:
- *                     tree2_obj = self.process_trees[tree2_id]             # <<<<<<<<<<<<<<
- *                     have_match = tree1_obj.matches(tree2_obj)
- *                     if have_match and tree1_id in match_dict.keys():
- */
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 98, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_6 = __Pyx_PyObject_GetItem(__pyx_t_1, __pyx_v_tree2_id); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 98, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_6);
-        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        __Pyx_XDECREF_SET(__pyx_v_tree2_obj, __pyx_t_6);
-        __pyx_t_6 = 0;
-
-        /* "toolbelt/process_trees.pyx":99
- *                 for tree2_id in remaining_trees:
- *                     tree2_obj = self.process_trees[tree2_id]
- *                     have_match = tree1_obj.matches(tree2_obj)             # <<<<<<<<<<<<<<
- *                     if have_match and tree1_id in match_dict.keys():
- *                         match_dict[tree1_id].append(tree2_id)
- */
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_tree1_obj, __pyx_n_s_matches); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 99, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_7 = NULL;
-        if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_1))) {
-          __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_1);
-          if (likely(__pyx_t_7)) {
-            PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_1);
-            __Pyx_INCREF(__pyx_t_7);
-            __Pyx_INCREF(function);
-            __Pyx_DECREF_SET(__pyx_t_1, function);
-          }
-        }
-        __pyx_t_6 = (__pyx_t_7) ? __Pyx_PyObject_Call2Args(__pyx_t_1, __pyx_t_7, __pyx_v_tree2_obj) : __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_v_tree2_obj);
-        __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 99, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_6);
-        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        __Pyx_XDECREF_SET(__pyx_v_have_match, __pyx_t_6);
-        __pyx_t_6 = 0;
-
-        /* "toolbelt/process_trees.pyx":100
- *                     tree2_obj = self.process_trees[tree2_id]
- *                     have_match = tree1_obj.matches(tree2_obj)
- *                     if have_match and tree1_id in match_dict.keys():             # <<<<<<<<<<<<<<
- *                         match_dict[tree1_id].append(tree2_id)
- *                     elif have_match and tree1_id not in match_dict.keys():
- */
-        __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_have_match); if (unlikely(__pyx_t_10 < 0)) __PYX_ERR(0, 100, __pyx_L1_error)
-        if (__pyx_t_10) {
-        } else {
-          __pyx_t_9 = __pyx_t_10;
-          goto __pyx_L15_bool_binop_done;
-        }
-        __pyx_t_6 = __Pyx_PyDict_Keys(__pyx_v_match_dict); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 100, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_10 = (__Pyx_PySequence_ContainsTF(__pyx_v_tree1_id, __pyx_t_6, Py_EQ)); if (unlikely(__pyx_t_10 < 0)) __PYX_ERR(0, 100, __pyx_L1_error)
-        __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        __pyx_t_11 = (__pyx_t_10 != 0);
-        __pyx_t_9 = __pyx_t_11;
-        __pyx_L15_bool_binop_done:;
-        if (__pyx_t_9) {
-
-          /* "toolbelt/process_trees.pyx":101
- *                     have_match = tree1_obj.matches(tree2_obj)
- *                     if have_match and tree1_id in match_dict.keys():
- *                         match_dict[tree1_id].append(tree2_id)             # <<<<<<<<<<<<<<
- *                     elif have_match and tree1_id not in match_dict.keys():
- *                         match_dict[tree1_id] = [tree2_id]
- */
-          __pyx_t_6 = __Pyx_PyDict_GetItem(__pyx_v_match_dict, __pyx_v_tree1_id); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 101, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_6);
-          __pyx_t_12 = __Pyx_PyObject_Append(__pyx_t_6, __pyx_v_tree2_id); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 101, __pyx_L1_error)
-          __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-
-          /* "toolbelt/process_trees.pyx":100
- *                     tree2_obj = self.process_trees[tree2_id]
- *                     have_match = tree1_obj.matches(tree2_obj)
- *                     if have_match and tree1_id in match_dict.keys():             # <<<<<<<<<<<<<<
- *                         match_dict[tree1_id].append(tree2_id)
- *                     elif have_match and tree1_id not in match_dict.keys():
- */
-          goto __pyx_L14;
-        }
-
-        /* "toolbelt/process_trees.pyx":102
- *                     if have_match and tree1_id in match_dict.keys():
- *                         match_dict[tree1_id].append(tree2_id)
- *                     elif have_match and tree1_id not in match_dict.keys():             # <<<<<<<<<<<<<<
- *                         match_dict[tree1_id] = [tree2_id]
- *                     else:
- */
-        __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_v_have_match); if (unlikely(__pyx_t_11 < 0)) __PYX_ERR(0, 102, __pyx_L1_error)
-        if (__pyx_t_11) {
-        } else {
-          __pyx_t_9 = __pyx_t_11;
-          goto __pyx_L17_bool_binop_done;
-        }
-        __pyx_t_6 = __Pyx_PyDict_Keys(__pyx_v_match_dict); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 102, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_11 = (__Pyx_PySequence_ContainsTF(__pyx_v_tree1_id, __pyx_t_6, Py_NE)); if (unlikely(__pyx_t_11 < 0)) __PYX_ERR(0, 102, __pyx_L1_error)
-        __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        __pyx_t_10 = (__pyx_t_11 != 0);
-        __pyx_t_9 = __pyx_t_10;
-        __pyx_L17_bool_binop_done:;
-        if (__pyx_t_9) {
-
-          /* "toolbelt/process_trees.pyx":103
- *                         match_dict[tree1_id].append(tree2_id)
- *                     elif have_match and tree1_id not in match_dict.keys():
- *                         match_dict[tree1_id] = [tree2_id]             # <<<<<<<<<<<<<<
- *                     else:
- *                         match_dict[tree1_id] = []
- */
-          __pyx_t_6 = PyList_New(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 103, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_6);
-          __Pyx_INCREF(__pyx_v_tree2_id);
-          __Pyx_GIVEREF(__pyx_v_tree2_id);
-          PyList_SET_ITEM(__pyx_t_6, 0, __pyx_v_tree2_id);
-          if (unlikely(PyDict_SetItem(__pyx_v_match_dict, __pyx_v_tree1_id, __pyx_t_6) < 0)) __PYX_ERR(0, 103, __pyx_L1_error)
-          __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-
-          /* "toolbelt/process_trees.pyx":102
- *                     if have_match and tree1_id in match_dict.keys():
- *                         match_dict[tree1_id].append(tree2_id)
- *                     elif have_match and tree1_id not in match_dict.keys():             # <<<<<<<<<<<<<<
- *                         match_dict[tree1_id] = [tree2_id]
- *                     else:
- */
-          goto __pyx_L14;
-        }
-
-        /* "toolbelt/process_trees.pyx":105
- *                         match_dict[tree1_id] = [tree2_id]
- *                     else:
- *                         match_dict[tree1_id] = []             # <<<<<<<<<<<<<<
- *                 if tree1_id in match_dict.keys():
- *                     remaining_trees = [x for x in remaining_trees if x not in match_dict[tree1_id]]
- */
-        /*else*/ {
-          __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 105, __pyx_L1_error)
-          __Pyx_GOTREF(__pyx_t_6);
-          if (unlikely(PyDict_SetItem(__pyx_v_match_dict, __pyx_v_tree1_id, __pyx_t_6) < 0)) __PYX_ERR(0, 105, __pyx_L1_error)
-          __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        }
-        __pyx_L14:;
-
-        /* "toolbelt/process_trees.pyx":97
- *             tree1_obj = self.process_trees[tree1_id]
- *             if len(remaining_trees) > 0:
- *                 for tree2_id in remaining_trees:             # <<<<<<<<<<<<<<
- *                     tree2_obj = self.process_trees[tree2_id]
- *                     have_match = tree1_obj.matches(tree2_obj)
- */
-      }
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-      /* "toolbelt/process_trees.pyx":106
- *                     else:
- *                         match_dict[tree1_id] = []
- *                 if tree1_id in match_dict.keys():             # <<<<<<<<<<<<<<
- *                     remaining_trees = [x for x in remaining_trees if x not in match_dict[tree1_id]]
+      /* "toolbelt/process_trees.pyx":105
+ *             matches = [x for x in find_all_matches(self, self.process_trees[tree1_id]) if x!=tree1_id]
+ *             if len(matches) > 0:
+ *                 match_dict[tree1_id] = matches             # <<<<<<<<<<<<<<
  *             else:
+ *                 match_dict[tree1_id] = None
  */
-      __pyx_t_2 = __Pyx_PyDict_Keys(__pyx_v_match_dict); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 106, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_9 = (__Pyx_PySequence_ContainsTF(__pyx_v_tree1_id, __pyx_t_2, Py_EQ)); if (unlikely(__pyx_t_9 < 0)) __PYX_ERR(0, 106, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __pyx_t_10 = (__pyx_t_9 != 0);
-      if (__pyx_t_10) {
+      if (unlikely(PyDict_SetItem(__pyx_v_match_dict, __pyx_v_tree1_id, __pyx_v_matches) < 0)) __PYX_ERR(0, 105, __pyx_L1_error)
 
-        /* "toolbelt/process_trees.pyx":107
- *                         match_dict[tree1_id] = []
- *                 if tree1_id in match_dict.keys():
- *                     remaining_trees = [x for x in remaining_trees if x not in match_dict[tree1_id]]             # <<<<<<<<<<<<<<
- *             else:
- *                 match_dict[tree1_id] = []
- */
-        { /* enter inner scope */
-          __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 107, __pyx_L22_error)
-          __Pyx_GOTREF(__pyx_t_2);
-          __pyx_t_6 = __pyx_v_remaining_trees; __Pyx_INCREF(__pyx_t_6); __pyx_t_4 = 0;
-          for (;;) {
-            if (__pyx_t_4 >= PyList_GET_SIZE(__pyx_t_6)) break;
-            #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-            __pyx_t_1 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_4); __Pyx_INCREF(__pyx_t_1); __pyx_t_4++; if (unlikely(0 < 0)) __PYX_ERR(0, 107, __pyx_L22_error)
-            #else
-            __pyx_t_1 = PySequence_ITEM(__pyx_t_6, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 107, __pyx_L22_error)
-            __Pyx_GOTREF(__pyx_t_1);
-            #endif
-            __Pyx_XDECREF_SET(__pyx_8genexpr2__pyx_v_x, __pyx_t_1);
-            __pyx_t_1 = 0;
-            __pyx_t_1 = __Pyx_PyDict_GetItem(__pyx_v_match_dict, __pyx_v_tree1_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 107, __pyx_L22_error)
-            __Pyx_GOTREF(__pyx_t_1);
-            __pyx_t_10 = (__Pyx_PySequence_ContainsTF(__pyx_8genexpr2__pyx_v_x, __pyx_t_1, Py_NE)); if (unlikely(__pyx_t_10 < 0)) __PYX_ERR(0, 107, __pyx_L22_error)
-            __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-            __pyx_t_9 = (__pyx_t_10 != 0);
-            if (__pyx_t_9) {
-              if (unlikely(__Pyx_ListComp_Append(__pyx_t_2, (PyObject*)__pyx_8genexpr2__pyx_v_x))) __PYX_ERR(0, 107, __pyx_L22_error)
-            }
-          }
-          __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          __Pyx_XDECREF(__pyx_8genexpr2__pyx_v_x); __pyx_8genexpr2__pyx_v_x = 0;
-          goto __pyx_L26_exit_scope;
-          __pyx_L22_error:;
-          __Pyx_XDECREF(__pyx_8genexpr2__pyx_v_x); __pyx_8genexpr2__pyx_v_x = 0;
-          goto __pyx_L1_error;
-          __pyx_L26_exit_scope:;
-        } /* exit inner scope */
-        __Pyx_DECREF_SET(__pyx_v_remaining_trees, ((PyObject*)__pyx_t_2));
-        __pyx_t_2 = 0;
-
-        /* "toolbelt/process_trees.pyx":106
- *                     else:
- *                         match_dict[tree1_id] = []
- *                 if tree1_id in match_dict.keys():             # <<<<<<<<<<<<<<
- *                     remaining_trees = [x for x in remaining_trees if x not in match_dict[tree1_id]]
- *             else:
- */
-      }
-
-      /* "toolbelt/process_trees.pyx":96
+      /* "toolbelt/process_trees.pyx":104
  *             tree1_id = remaining_trees.pop(0)
- *             tree1_obj = self.process_trees[tree1_id]
- *             if len(remaining_trees) > 0:             # <<<<<<<<<<<<<<
- *                 for tree2_id in remaining_trees:
- *                     tree2_obj = self.process_trees[tree2_id]
+ *             matches = [x for x in find_all_matches(self, self.process_trees[tree1_id]) if x!=tree1_id]
+ *             if len(matches) > 0:             # <<<<<<<<<<<<<<
+ *                 match_dict[tree1_id] = matches
+ *             else:
  */
-      goto __pyx_L11;
+      goto __pyx_L18;
     }
 
-    /* "toolbelt/process_trees.pyx":109
- *                     remaining_trees = [x for x in remaining_trees if x not in match_dict[tree1_id]]
+    /* "toolbelt/process_trees.pyx":107
+ *                 match_dict[tree1_id] = matches
  *             else:
- *                 match_dict[tree1_id] = []             # <<<<<<<<<<<<<<
+ *                 match_dict[tree1_id] = None             # <<<<<<<<<<<<<<
+ * 
+ *             remaining_trees = [x for x in remaining_trees if x not in matches+[tree1_id]]
+ */
+    /*else*/ {
+      if (unlikely(PyDict_SetItem(__pyx_v_match_dict, __pyx_v_tree1_id, Py_None) < 0)) __PYX_ERR(0, 107, __pyx_L1_error)
+    }
+    __pyx_L18:;
+
+    /* "toolbelt/process_trees.pyx":109
+ *                 match_dict[tree1_id] = None
+ * 
+ *             remaining_trees = [x for x in remaining_trees if x not in matches+[tree1_id]]             # <<<<<<<<<<<<<<
  *         if return_dict:
  *             return match_dict
  */
-    /*else*/ {
-      __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 109, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_2);
-      if (unlikely(PyDict_SetItem(__pyx_v_match_dict, __pyx_v_tree1_id, __pyx_t_2) < 0)) __PYX_ERR(0, 109, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    }
-    __pyx_L11:;
+    { /* enter inner scope */
+      __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 109, __pyx_L21_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_6 = __pyx_v_remaining_trees; __Pyx_INCREF(__pyx_t_6); __pyx_t_4 = 0;
+      for (;;) {
+        if (__pyx_t_4 >= PyList_GET_SIZE(__pyx_t_6)) break;
+        #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+        __pyx_t_2 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely(0 < 0)) __PYX_ERR(0, 109, __pyx_L21_error)
+        #else
+        __pyx_t_2 = PySequence_ITEM(__pyx_t_6, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 109, __pyx_L21_error)
+        __Pyx_GOTREF(__pyx_t_2);
+        #endif
+        __Pyx_XDECREF_SET(__pyx_8genexpr4__pyx_v_x, __pyx_t_2);
+        __pyx_t_2 = 0;
+        __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 109, __pyx_L21_error)
+        __Pyx_GOTREF(__pyx_t_2);
+        __Pyx_INCREF(__pyx_v_tree1_id);
+        __Pyx_GIVEREF(__pyx_v_tree1_id);
+        PyList_SET_ITEM(__pyx_t_2, 0, __pyx_v_tree1_id);
+        __pyx_t_11 = PyNumber_Add(__pyx_v_matches, __pyx_t_2); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 109, __pyx_L21_error)
+        __Pyx_GOTREF(__pyx_t_11);
+        __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+        __pyx_t_9 = (__Pyx_PySequence_ContainsTF(__pyx_8genexpr4__pyx_v_x, __pyx_t_11, Py_NE)); if (unlikely(__pyx_t_9 < 0)) __PYX_ERR(0, 109, __pyx_L21_error)
+        __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+        __pyx_t_13 = (__pyx_t_9 != 0);
+        if (__pyx_t_13) {
+          if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_8genexpr4__pyx_v_x))) __PYX_ERR(0, 109, __pyx_L21_error)
+        }
+      }
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_XDECREF(__pyx_8genexpr4__pyx_v_x); __pyx_8genexpr4__pyx_v_x = 0;
+      goto __pyx_L25_exit_scope;
+      __pyx_L21_error:;
+      __Pyx_XDECREF(__pyx_8genexpr4__pyx_v_x); __pyx_8genexpr4__pyx_v_x = 0;
+      goto __pyx_L1_error;
+      __pyx_L25_exit_scope:;
+    } /* exit inner scope */
+    __Pyx_DECREF_SET(__pyx_v_remaining_trees, ((PyObject*)__pyx_t_1));
+    __pyx_t_1 = 0;
   }
 
   /* "toolbelt/process_trees.pyx":110
- *             else:
- *                 match_dict[tree1_id] = []
+ * 
+ *             remaining_trees = [x for x in remaining_trees if x not in matches+[tree1_id]]
  *         if return_dict:             # <<<<<<<<<<<<<<
  *             return match_dict
  *         else:
  */
-  __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_v_return_dict); if (unlikely(__pyx_t_9 < 0)) __PYX_ERR(0, 110, __pyx_L1_error)
-  if (__pyx_t_9) {
+  __pyx_t_13 = __Pyx_PyObject_IsTrue(__pyx_v_return_dict); if (unlikely(__pyx_t_13 < 0)) __PYX_ERR(0, 110, __pyx_L1_error)
+  if (__pyx_t_13) {
 
     /* "toolbelt/process_trees.pyx":111
- *                 match_dict[tree1_id] = []
+ *             remaining_trees = [x for x in remaining_trees if x not in matches+[tree1_id]]
  *         if return_dict:
  *             return match_dict             # <<<<<<<<<<<<<<
  *         else:
@@ -4388,8 +4520,8 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_16find_unique_trees(CY
     goto __pyx_L0;
 
     /* "toolbelt/process_trees.pyx":110
- *             else:
- *                 match_dict[tree1_id] = []
+ * 
+ *             remaining_trees = [x for x in remaining_trees if x not in matches+[tree1_id]]
  *         if return_dict:             # <<<<<<<<<<<<<<
  *             return match_dict
  *         else:
@@ -4405,17 +4537,17 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_16find_unique_trees(CY
  */
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = __Pyx_PyDict_Keys(__pyx_v_match_dict); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 113, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_6 = PySequence_List(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 113, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_Keys(__pyx_v_match_dict); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 113, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_6 = PySequence_List(__pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 113, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_r = __pyx_t_6;
     __pyx_t_6 = 0;
     goto __pyx_L0;
   }
 
-  /* "toolbelt/process_trees.pyx":90
+  /* "toolbelt/process_trees.pyx":98
  *                 json.dump(self.to_dict(), f, indent=indent)
  * 
  *     def find_unique_trees(self, return_dict=False):             # <<<<<<<<<<<<<<
@@ -4429,19 +4561,19 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_16find_unique_trees(CY
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_6);
   __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_10);
+  __Pyx_XDECREF(__pyx_t_11);
   __Pyx_AddTraceback("toolbelt.process_trees.Host.find_unique_trees", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_remaining_trees);
   __Pyx_XDECREF(__pyx_v_match_dict);
   __Pyx_XDECREF(__pyx_v_tree1_id);
-  __Pyx_XDECREF(__pyx_v_tree1_obj);
-  __Pyx_XDECREF(__pyx_v_tree2_id);
-  __Pyx_XDECREF(__pyx_v_tree2_obj);
-  __Pyx_XDECREF(__pyx_v_have_match);
-  __Pyx_XDECREF(__pyx_8genexpr1__pyx_v__id);
-  __Pyx_XDECREF(__pyx_8genexpr1__pyx_v__);
-  __Pyx_XDECREF(__pyx_8genexpr2__pyx_v_x);
+  __Pyx_XDECREF(__pyx_v_matches);
+  __Pyx_XDECREF(__pyx_8genexpr2__pyx_v__id);
+  __Pyx_XDECREF(__pyx_8genexpr2__pyx_v__);
+  __Pyx_XDECREF(__pyx_8genexpr3__pyx_v_x);
+  __Pyx_XDECREF(__pyx_8genexpr4__pyx_v_x);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
@@ -4456,20 +4588,20 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_16find_unique_trees(CY
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_19drop_duplicates(PyObject *__pyx_self, PyObject *__pyx_v_self); /*proto*/
-static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_19drop_duplicates = {"drop_duplicates", (PyCFunction)__pyx_pw_8toolbelt_13process_trees_4Host_19drop_duplicates, METH_O, 0};
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_19drop_duplicates(PyObject *__pyx_self, PyObject *__pyx_v_self) {
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_21drop_duplicates(PyObject *__pyx_self, PyObject *__pyx_v_self); /*proto*/
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_21drop_duplicates = {"drop_duplicates", (PyCFunction)__pyx_pw_8toolbelt_13process_trees_4Host_21drop_duplicates, METH_O, 0};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_21drop_duplicates(PyObject *__pyx_self, PyObject *__pyx_v_self) {
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("drop_duplicates (wrapper)", 0);
-  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_18drop_duplicates(__pyx_self, ((PyObject *)__pyx_v_self));
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_20drop_duplicates(__pyx_self, ((PyObject *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_18drop_duplicates(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_20drop_duplicates(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
   PyObject *__pyx_v_remaining_id_check = NULL;
   PyObject *__pyx_v_unique_tree_dict = NULL;
   PyObject *__pyx_v_retained_tree_id = NULL;
@@ -4485,8 +4617,8 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_18drop_duplicates(CYTH
   int __pyx_t_6;
   int __pyx_t_7;
   int __pyx_t_8;
-  Py_ssize_t __pyx_t_9;
-  int __pyx_t_10;
+  int __pyx_t_9;
+  Py_ssize_t __pyx_t_10;
   PyObject *(*__pyx_t_11)(PyObject *);
   PyObject *__pyx_t_12 = NULL;
   PyObject *__pyx_t_13 = NULL;
@@ -4553,7 +4685,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_18drop_duplicates(CYTH
  *         for retained_tree_id in unique_tree_dict.keys():
  *             duplicates = unique_tree_dict[retained_tree_id]             # <<<<<<<<<<<<<<
  *             remaining_id_check.append(retained_tree_id)
- *             if len(duplicates) > 0:
+ *             if duplicates:
  */
     __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_v_unique_tree_dict, __pyx_v_retained_tree_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
@@ -4564,7 +4696,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_18drop_duplicates(CYTH
  *         for retained_tree_id in unique_tree_dict.keys():
  *             duplicates = unique_tree_dict[retained_tree_id]
  *             remaining_id_check.append(retained_tree_id)             # <<<<<<<<<<<<<<
- *             if len(duplicates) > 0:
+ *             if duplicates:
  *                 self.unique_tree_counts[retained_tree_id] = len(duplicates)+1
  */
     __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_remaining_id_check, __pyx_v_retained_tree_id); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 120, __pyx_L1_error)
@@ -4572,23 +4704,22 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_18drop_duplicates(CYTH
     /* "toolbelt/process_trees.pyx":121
  *             duplicates = unique_tree_dict[retained_tree_id]
  *             remaining_id_check.append(retained_tree_id)
- *             if len(duplicates) > 0:             # <<<<<<<<<<<<<<
+ *             if duplicates:             # <<<<<<<<<<<<<<
  *                 self.unique_tree_counts[retained_tree_id] = len(duplicates)+1
  *                 for drop_tree_id in duplicates:
  */
-    __pyx_t_9 = PyObject_Length(__pyx_v_duplicates); if (unlikely(__pyx_t_9 == ((Py_ssize_t)-1))) __PYX_ERR(0, 121, __pyx_L1_error)
-    __pyx_t_10 = ((__pyx_t_9 > 0) != 0);
-    if (__pyx_t_10) {
+    __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_v_duplicates); if (unlikely(__pyx_t_9 < 0)) __PYX_ERR(0, 121, __pyx_L1_error)
+    if (__pyx_t_9) {
 
       /* "toolbelt/process_trees.pyx":122
  *             remaining_id_check.append(retained_tree_id)
- *             if len(duplicates) > 0:
+ *             if duplicates:
  *                 self.unique_tree_counts[retained_tree_id] = len(duplicates)+1             # <<<<<<<<<<<<<<
  *                 for drop_tree_id in duplicates:
  *                     self.del_tree(drop_tree_id)
  */
-      __pyx_t_9 = PyObject_Length(__pyx_v_duplicates); if (unlikely(__pyx_t_9 == ((Py_ssize_t)-1))) __PYX_ERR(0, 122, __pyx_L1_error)
-      __pyx_t_2 = PyInt_FromSsize_t((__pyx_t_9 + 1)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L1_error)
+      __pyx_t_10 = PyObject_Length(__pyx_v_duplicates); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 122, __pyx_L1_error)
+      __pyx_t_2 = PyInt_FromSsize_t((__pyx_t_10 + 1)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_unique_tree_counts); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 122, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
@@ -4597,36 +4728,36 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_18drop_duplicates(CYTH
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
       /* "toolbelt/process_trees.pyx":123
- *             if len(duplicates) > 0:
+ *             if duplicates:
  *                 self.unique_tree_counts[retained_tree_id] = len(duplicates)+1
  *                 for drop_tree_id in duplicates:             # <<<<<<<<<<<<<<
  *                     self.del_tree(drop_tree_id)
  *             else:
  */
       if (likely(PyList_CheckExact(__pyx_v_duplicates)) || PyTuple_CheckExact(__pyx_v_duplicates)) {
-        __pyx_t_2 = __pyx_v_duplicates; __Pyx_INCREF(__pyx_t_2); __pyx_t_9 = 0;
+        __pyx_t_2 = __pyx_v_duplicates; __Pyx_INCREF(__pyx_t_2); __pyx_t_10 = 0;
         __pyx_t_11 = NULL;
       } else {
-        __pyx_t_9 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_v_duplicates); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 123, __pyx_L1_error)
+        __pyx_t_10 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_v_duplicates); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 123, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __pyx_t_11 = Py_TYPE(__pyx_t_2)->tp_iternext; if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 123, __pyx_L1_error)
       }
       for (;;) {
         if (likely(!__pyx_t_11)) {
           if (likely(PyList_CheckExact(__pyx_t_2))) {
-            if (__pyx_t_9 >= PyList_GET_SIZE(__pyx_t_2)) break;
+            if (__pyx_t_10 >= PyList_GET_SIZE(__pyx_t_2)) break;
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-            __pyx_t_1 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_9); __Pyx_INCREF(__pyx_t_1); __pyx_t_9++; if (unlikely(0 < 0)) __PYX_ERR(0, 123, __pyx_L1_error)
+            __pyx_t_1 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_10); __Pyx_INCREF(__pyx_t_1); __pyx_t_10++; if (unlikely(0 < 0)) __PYX_ERR(0, 123, __pyx_L1_error)
             #else
-            __pyx_t_1 = PySequence_ITEM(__pyx_t_2, __pyx_t_9); __pyx_t_9++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 123, __pyx_L1_error)
+            __pyx_t_1 = PySequence_ITEM(__pyx_t_2, __pyx_t_10); __pyx_t_10++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 123, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_1);
             #endif
           } else {
-            if (__pyx_t_9 >= PyTuple_GET_SIZE(__pyx_t_2)) break;
+            if (__pyx_t_10 >= PyTuple_GET_SIZE(__pyx_t_2)) break;
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-            __pyx_t_1 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_9); __Pyx_INCREF(__pyx_t_1); __pyx_t_9++; if (unlikely(0 < 0)) __PYX_ERR(0, 123, __pyx_L1_error)
+            __pyx_t_1 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_10); __Pyx_INCREF(__pyx_t_1); __pyx_t_10++; if (unlikely(0 < 0)) __PYX_ERR(0, 123, __pyx_L1_error)
             #else
-            __pyx_t_1 = PySequence_ITEM(__pyx_t_2, __pyx_t_9); __pyx_t_9++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 123, __pyx_L1_error)
+            __pyx_t_1 = PySequence_ITEM(__pyx_t_2, __pyx_t_10); __pyx_t_10++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 123, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_1);
             #endif
           }
@@ -4672,7 +4803,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_18drop_duplicates(CYTH
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
         /* "toolbelt/process_trees.pyx":123
- *             if len(duplicates) > 0:
+ *             if duplicates:
  *                 self.unique_tree_counts[retained_tree_id] = len(duplicates)+1
  *                 for drop_tree_id in duplicates:             # <<<<<<<<<<<<<<
  *                     self.del_tree(drop_tree_id)
@@ -4684,7 +4815,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_18drop_duplicates(CYTH
       /* "toolbelt/process_trees.pyx":121
  *             duplicates = unique_tree_dict[retained_tree_id]
  *             remaining_id_check.append(retained_tree_id)
- *             if len(duplicates) > 0:             # <<<<<<<<<<<<<<
+ *             if duplicates:             # <<<<<<<<<<<<<<
  *                 self.unique_tree_counts[retained_tree_id] = len(duplicates)+1
  *                 for drop_tree_id in duplicates:
  */
@@ -4743,9 +4874,9 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_18drop_duplicates(CYTH
   __pyx_t_2 = PyObject_RichCompare(__pyx_t_3, __pyx_t_12, Py_NE); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_10 < 0)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_9 < 0)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (unlikely(__pyx_t_10)) {
+  if (unlikely(__pyx_t_9)) {
 
     /* "toolbelt/process_trees.pyx":128
  *                 self.unique_tree_counts[retained_tree_id] = 1
@@ -4817,20 +4948,20 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_18drop_duplicates(CYTH
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_21to_unique(PyObject *__pyx_self, PyObject *__pyx_v_self); /*proto*/
-static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_21to_unique = {"to_unique", (PyCFunction)__pyx_pw_8toolbelt_13process_trees_4Host_21to_unique, METH_O, 0};
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_21to_unique(PyObject *__pyx_self, PyObject *__pyx_v_self) {
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_23to_unique(PyObject *__pyx_self, PyObject *__pyx_v_self); /*proto*/
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_23to_unique = {"to_unique", (PyCFunction)__pyx_pw_8toolbelt_13process_trees_4Host_23to_unique, METH_O, 0};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_23to_unique(PyObject *__pyx_self, PyObject *__pyx_v_self) {
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("to_unique (wrapper)", 0);
-  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_20to_unique(__pyx_self, ((PyObject *)__pyx_v_self));
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_22to_unique(__pyx_self, ((PyObject *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_20to_unique(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_22to_unique(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -4905,23 +5036,23 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_20to_unique(CYTHON_UNU
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_23tree_stats(PyObject *__pyx_self, PyObject *__pyx_v_self); /*proto*/
-static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_23tree_stats = {"tree_stats", (PyCFunction)__pyx_pw_8toolbelt_13process_trees_4Host_23tree_stats, METH_O, 0};
-static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_23tree_stats(PyObject *__pyx_self, PyObject *__pyx_v_self) {
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_25tree_stats(PyObject *__pyx_self, PyObject *__pyx_v_self); /*proto*/
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_4Host_25tree_stats = {"tree_stats", (PyCFunction)__pyx_pw_8toolbelt_13process_trees_4Host_25tree_stats, METH_O, 0};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_4Host_25tree_stats(PyObject *__pyx_self, PyObject *__pyx_v_self) {
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("tree_stats (wrapper)", 0);
-  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_22tree_stats(__pyx_self, ((PyObject *)__pyx_v_self));
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4Host_24tree_stats(__pyx_self, ((PyObject *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_22tree_stats(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_24tree_stats(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
   PyObject *__pyx_v_values = NULL;
-  CYTHON_UNUSED PyObject *__pyx_8genexpr3__pyx_v__ = NULL;
-  PyObject *__pyx_8genexpr3__pyx_v_val = NULL;
+  CYTHON_UNUSED PyObject *__pyx_8genexpr5__pyx_v__ = NULL;
+  PyObject *__pyx_8genexpr5__pyx_v_val = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -5008,19 +5139,19 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_22tree_stats(CYTHON_UN
         if (unlikely(__pyx_t_12 == -1)) __PYX_ERR(0, 138, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_11);
         __Pyx_GOTREF(__pyx_t_10);
-        __Pyx_XDECREF_SET(__pyx_8genexpr3__pyx_v__, __pyx_t_11);
+        __Pyx_XDECREF_SET(__pyx_8genexpr5__pyx_v__, __pyx_t_11);
         __pyx_t_11 = 0;
-        __Pyx_XDECREF_SET(__pyx_8genexpr3__pyx_v_val, __pyx_t_10);
+        __Pyx_XDECREF_SET(__pyx_8genexpr5__pyx_v_val, __pyx_t_10);
         __pyx_t_10 = 0;
-        if (unlikely(__Pyx_ListComp_Append(__pyx_t_4, (PyObject*)__pyx_8genexpr3__pyx_v_val))) __PYX_ERR(0, 138, __pyx_L6_error)
+        if (unlikely(__Pyx_ListComp_Append(__pyx_t_4, (PyObject*)__pyx_8genexpr5__pyx_v_val))) __PYX_ERR(0, 138, __pyx_L6_error)
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __Pyx_XDECREF(__pyx_8genexpr3__pyx_v__); __pyx_8genexpr3__pyx_v__ = 0;
-      __Pyx_XDECREF(__pyx_8genexpr3__pyx_v_val); __pyx_8genexpr3__pyx_v_val = 0;
+      __Pyx_XDECREF(__pyx_8genexpr5__pyx_v__); __pyx_8genexpr5__pyx_v__ = 0;
+      __Pyx_XDECREF(__pyx_8genexpr5__pyx_v_val); __pyx_8genexpr5__pyx_v_val = 0;
       goto __pyx_L9_exit_scope;
       __pyx_L6_error:;
-      __Pyx_XDECREF(__pyx_8genexpr3__pyx_v__); __pyx_8genexpr3__pyx_v__ = 0;
-      __Pyx_XDECREF(__pyx_8genexpr3__pyx_v_val); __pyx_8genexpr3__pyx_v_val = 0;
+      __Pyx_XDECREF(__pyx_8genexpr5__pyx_v__); __pyx_8genexpr5__pyx_v__ = 0;
+      __Pyx_XDECREF(__pyx_8genexpr5__pyx_v_val); __pyx_8genexpr5__pyx_v_val = 0;
       goto __pyx_L1_error;
       __pyx_L9_exit_scope:;
     } /* exit inner scope */
@@ -5318,8 +5449,8 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_4Host_22tree_stats(CYTHON_UN
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_values);
-  __Pyx_XDECREF(__pyx_8genexpr3__pyx_v__);
-  __Pyx_XDECREF(__pyx_8genexpr3__pyx_v_val);
+  __Pyx_XDECREF(__pyx_8genexpr5__pyx_v__);
+  __Pyx_XDECREF(__pyx_8genexpr5__pyx_v_val);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
@@ -5659,7 +5790,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_4__str__(CYTHO
  *     def __str__(self):
  *         return f"Process Tree for host {self.Host} with {len(self.nodes.keys())} nodes."             # <<<<<<<<<<<<<<
  * 
- *     def to_dict(self):
+ *     def get_host(self):
  */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_1 = PyTuple_New(5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 165, __pyx_L1_error)
@@ -5748,26 +5879,246 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_4__str__(CYTHO
 /* "toolbelt/process_trees.pyx":167
  *         return f"Process Tree for host {self.Host} with {len(self.nodes.keys())} nodes."
  * 
- *     def to_dict(self):             # <<<<<<<<<<<<<<
- *         ret_val = {'tree_id': self.tree_id}
- *         if self.Host:
+ *     def get_host(self):             # <<<<<<<<<<<<<<
+ *         return Host
+ * 
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_7to_dict(PyObject *__pyx_self, PyObject *__pyx_v_self); /*proto*/
-static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_11ProcessTree_7to_dict = {"to_dict", (PyCFunction)__pyx_pw_8toolbelt_13process_trees_11ProcessTree_7to_dict, METH_O, 0};
-static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_7to_dict(PyObject *__pyx_self, PyObject *__pyx_v_self) {
+static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_7get_host(PyObject *__pyx_self, PyObject *__pyx_v_self); /*proto*/
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_11ProcessTree_7get_host = {"get_host", (PyCFunction)__pyx_pw_8toolbelt_13process_trees_11ProcessTree_7get_host, METH_O, 0};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_7get_host(PyObject *__pyx_self, PyObject *__pyx_v_self) {
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("to_dict (wrapper)", 0);
-  __pyx_r = __pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(__pyx_self, ((PyObject *)__pyx_v_self));
+  __Pyx_RefNannySetupContext("get_host (wrapper)", 0);
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_11ProcessTree_6get_host(__pyx_self, ((PyObject *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
+static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6get_host(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  __Pyx_RefNannySetupContext("get_host", 0);
+
+  /* "toolbelt/process_trees.pyx":168
+ * 
+ *     def get_host(self):
+ *         return Host             # <<<<<<<<<<<<<<
+ * 
+ *     def set_host(self, host):
+ */
+  __Pyx_XDECREF(__pyx_r);
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Host); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "toolbelt/process_trees.pyx":167
+ *         return f"Process Tree for host {self.Host} with {len(self.nodes.keys())} nodes."
+ * 
+ *     def get_host(self):             # <<<<<<<<<<<<<<
+ *         return Host
+ * 
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("toolbelt.process_trees.ProcessTree.get_host", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "toolbelt/process_trees.pyx":170
+ *         return Host
+ * 
+ *     def set_host(self, host):             # <<<<<<<<<<<<<<
+ *         self.Host = host
+ *         if host:
+ */
+
+/* Python wrapper */
+static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_9set_host(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_11ProcessTree_9set_host = {"set_host", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_11ProcessTree_9set_host, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_9set_host(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+  PyObject *__pyx_v_self = 0;
+  PyObject *__pyx_v_host = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("set_host (wrapper)", 0);
+  {
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_host,0};
+    PyObject* values[2] = {0,0};
+    if (unlikely(__pyx_kwds)) {
+      Py_ssize_t kw_args;
+      const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
+      switch (pos_args) {
+        case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      kw_args = PyDict_Size(__pyx_kwds);
+      switch (pos_args) {
+        case  0:
+        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_self)) != 0)) kw_args--;
+        else goto __pyx_L5_argtuple_error;
+        CYTHON_FALLTHROUGH;
+        case  1:
+        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_host)) != 0)) kw_args--;
+        else {
+          __Pyx_RaiseArgtupleInvalid("set_host", 1, 2, 2, 1); __PYX_ERR(0, 170, __pyx_L3_error)
+        }
+      }
+      if (unlikely(kw_args > 0)) {
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "set_host") < 0)) __PYX_ERR(0, 170, __pyx_L3_error)
+      }
+    } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+      values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
+    }
+    __pyx_v_self = values[0];
+    __pyx_v_host = values[1];
+  }
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("set_host", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 170, __pyx_L3_error)
+  __pyx_L3_error:;
+  __Pyx_AddTraceback("toolbelt.process_trees.ProcessTree.set_host", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_11ProcessTree_8set_host(__pyx_self, __pyx_v_self, __pyx_v_host);
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8set_host(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_host) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  __Pyx_RefNannySetupContext("set_host", 0);
+
+  /* "toolbelt/process_trees.pyx":171
+ * 
+ *     def set_host(self, host):
+ *         self.Host = host             # <<<<<<<<<<<<<<
+ *         if host:
+ *             self.Host.add_tree(self)
+ */
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_Host, __pyx_v_host) < 0) __PYX_ERR(0, 171, __pyx_L1_error)
+
+  /* "toolbelt/process_trees.pyx":172
+ *     def set_host(self, host):
+ *         self.Host = host
+ *         if host:             # <<<<<<<<<<<<<<
+ *             self.Host.add_tree(self)
+ * 
+ */
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_host); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 172, __pyx_L1_error)
+  if (__pyx_t_1) {
+
+    /* "toolbelt/process_trees.pyx":173
+ *         self.Host = host
+ *         if host:
+ *             self.Host.add_tree(self)             # <<<<<<<<<<<<<<
+ * 
+ *     def to_dict(self):
+ */
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_Host); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 173, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_add_tree); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 173, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_3 = NULL;
+    if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_4))) {
+      __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_4);
+      if (likely(__pyx_t_3)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_4);
+        __Pyx_INCREF(__pyx_t_3);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_4, function);
+      }
+    }
+    __pyx_t_2 = (__pyx_t_3) ? __Pyx_PyObject_Call2Args(__pyx_t_4, __pyx_t_3, __pyx_v_self) : __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_v_self);
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 173, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+    /* "toolbelt/process_trees.pyx":172
+ *     def set_host(self, host):
+ *         self.Host = host
+ *         if host:             # <<<<<<<<<<<<<<
+ *             self.Host.add_tree(self)
+ * 
+ */
+  }
+
+  /* "toolbelt/process_trees.pyx":170
+ *         return Host
+ * 
+ *     def set_host(self, host):             # <<<<<<<<<<<<<<
+ *         self.Host = host
+ *         if host:
+ */
+
+  /* function exit code */
+  __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_AddTraceback("toolbelt.process_trees.ProcessTree.set_host", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "toolbelt/process_trees.pyx":175
+ *             self.Host.add_tree(self)
+ * 
+ *     def to_dict(self):             # <<<<<<<<<<<<<<
+ *         ret_val = {'tree_id': self.tree_id}
+ *         if self.Host:
+ */
+
+/* Python wrapper */
+static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_11to_dict(PyObject *__pyx_self, PyObject *__pyx_v_self); /*proto*/
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_11ProcessTree_11to_dict = {"to_dict", (PyCFunction)__pyx_pw_8toolbelt_13process_trees_11ProcessTree_11to_dict, METH_O, 0};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_11to_dict(PyObject *__pyx_self, PyObject *__pyx_v_self) {
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("to_dict (wrapper)", 0);
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_11ProcessTree_10to_dict(__pyx_self, ((PyObject *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10to_dict(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
   PyObject *__pyx_v_ret_val = NULL;
   PyObject *__pyx_v_layers = NULL;
   PyObject *__pyx_v_layers_dict = NULL;
@@ -5792,51 +6143,51 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
   PyObject *__pyx_t_12 = NULL;
   __Pyx_RefNannySetupContext("to_dict", 0);
 
-  /* "toolbelt/process_trees.pyx":168
+  /* "toolbelt/process_trees.pyx":176
  * 
  *     def to_dict(self):
  *         ret_val = {'tree_id': self.tree_id}             # <<<<<<<<<<<<<<
  *         if self.Host:
  *             ret_val['host'] = self.Host.name
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 176, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 176, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_tree_id, __pyx_t_2) < 0) __PYX_ERR(0, 168, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_u_tree_id, __pyx_t_2) < 0) __PYX_ERR(0, 176, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_ret_val = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "toolbelt/process_trees.pyx":169
+  /* "toolbelt/process_trees.pyx":177
  *     def to_dict(self):
  *         ret_val = {'tree_id': self.tree_id}
  *         if self.Host:             # <<<<<<<<<<<<<<
  *             ret_val['host'] = self.Host.name
  *         layers = self.get_layers()
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_Host); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_Host); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_3 < 0)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_3 < 0)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_3) {
 
-    /* "toolbelt/process_trees.pyx":170
+    /* "toolbelt/process_trees.pyx":178
  *         ret_val = {'tree_id': self.tree_id}
  *         if self.Host:
  *             ret_val['host'] = self.Host.name             # <<<<<<<<<<<<<<
  *         layers = self.get_layers()
  *         layers_dict = dict()
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_Host); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_Host); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 178, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 170, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 178, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(PyDict_SetItem(__pyx_v_ret_val, __pyx_n_u_host, __pyx_t_2) < 0)) __PYX_ERR(0, 170, __pyx_L1_error)
+    if (unlikely(PyDict_SetItem(__pyx_v_ret_val, __pyx_n_u_host, __pyx_t_2) < 0)) __PYX_ERR(0, 178, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":169
+    /* "toolbelt/process_trees.pyx":177
  *     def to_dict(self):
  *         ret_val = {'tree_id': self.tree_id}
  *         if self.Host:             # <<<<<<<<<<<<<<
@@ -5845,14 +6196,14 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
  */
   }
 
-  /* "toolbelt/process_trees.pyx":171
+  /* "toolbelt/process_trees.pyx":179
  *         if self.Host:
  *             ret_val['host'] = self.Host.name
  *         layers = self.get_layers()             # <<<<<<<<<<<<<<
  *         layers_dict = dict()
  *         for layer_idx, layer in enumerate(layers):
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_get_layers); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 171, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_get_layers); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 179, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_4 = NULL;
   if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_1))) {
@@ -5866,25 +6217,25 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
   }
   __pyx_t_2 = (__pyx_t_4) ? __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_t_4) : __Pyx_PyObject_CallNoArg(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 171, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 179, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_layers = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "toolbelt/process_trees.pyx":172
+  /* "toolbelt/process_trees.pyx":180
  *             ret_val['host'] = self.Host.name
  *         layers = self.get_layers()
  *         layers_dict = dict()             # <<<<<<<<<<<<<<
  *         for layer_idx, layer in enumerate(layers):
  *             layer_dict = dict()
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_v_layers_dict = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "toolbelt/process_trees.pyx":173
+  /* "toolbelt/process_trees.pyx":181
  *         layers = self.get_layers()
  *         layers_dict = dict()
  *         for layer_idx, layer in enumerate(layers):             # <<<<<<<<<<<<<<
@@ -5897,26 +6248,26 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
     __pyx_t_1 = __pyx_v_layers; __Pyx_INCREF(__pyx_t_1); __pyx_t_5 = 0;
     __pyx_t_6 = NULL;
   } else {
-    __pyx_t_5 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_v_layers); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
+    __pyx_t_5 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_v_layers); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 181, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = Py_TYPE(__pyx_t_1)->tp_iternext; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 173, __pyx_L1_error)
+    __pyx_t_6 = Py_TYPE(__pyx_t_1)->tp_iternext; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 181, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_6)) {
       if (likely(PyList_CheckExact(__pyx_t_1))) {
         if (__pyx_t_5 >= PyList_GET_SIZE(__pyx_t_1)) break;
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_4 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_5); __Pyx_INCREF(__pyx_t_4); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 173, __pyx_L1_error)
+        __pyx_t_4 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_5); __Pyx_INCREF(__pyx_t_4); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 181, __pyx_L1_error)
         #else
-        __pyx_t_4 = PySequence_ITEM(__pyx_t_1, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 173, __pyx_L1_error)
+        __pyx_t_4 = PySequence_ITEM(__pyx_t_1, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 181, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         #endif
       } else {
         if (__pyx_t_5 >= PyTuple_GET_SIZE(__pyx_t_1)) break;
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_4 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_5); __Pyx_INCREF(__pyx_t_4); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 173, __pyx_L1_error)
+        __pyx_t_4 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_5); __Pyx_INCREF(__pyx_t_4); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(0, 181, __pyx_L1_error)
         #else
-        __pyx_t_4 = PySequence_ITEM(__pyx_t_1, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 173, __pyx_L1_error)
+        __pyx_t_4 = PySequence_ITEM(__pyx_t_1, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 181, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         #endif
       }
@@ -5926,7 +6277,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
           if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-          else __PYX_ERR(0, 173, __pyx_L1_error)
+          else __PYX_ERR(0, 181, __pyx_L1_error)
         }
         break;
       }
@@ -5936,25 +6287,25 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
     __pyx_t_4 = 0;
     __Pyx_INCREF(__pyx_t_2);
     __Pyx_XDECREF_SET(__pyx_v_layer_idx, __pyx_t_2);
-    __pyx_t_4 = __Pyx_PyInt_AddObjC(__pyx_t_2, __pyx_int_1, 1, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 173, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyInt_AddObjC(__pyx_t_2, __pyx_int_1, 1, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 181, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2);
     __pyx_t_2 = __pyx_t_4;
     __pyx_t_4 = 0;
 
-    /* "toolbelt/process_trees.pyx":174
+    /* "toolbelt/process_trees.pyx":182
  *         layers_dict = dict()
  *         for layer_idx, layer in enumerate(layers):
  *             layer_dict = dict()             # <<<<<<<<<<<<<<
  *             for node_idx, node in enumerate(layer):
  *                 layer_dict[node_idx] = node.to_dict()
  */
-    __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 174, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 182, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_XDECREF_SET(__pyx_v_layer_dict, ((PyObject*)__pyx_t_4));
     __pyx_t_4 = 0;
 
-    /* "toolbelt/process_trees.pyx":175
+    /* "toolbelt/process_trees.pyx":183
  *         for layer_idx, layer in enumerate(layers):
  *             layer_dict = dict()
  *             for node_idx, node in enumerate(layer):             # <<<<<<<<<<<<<<
@@ -5967,26 +6318,26 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
       __pyx_t_7 = __pyx_v_layer; __Pyx_INCREF(__pyx_t_7); __pyx_t_8 = 0;
       __pyx_t_9 = NULL;
     } else {
-      __pyx_t_8 = -1; __pyx_t_7 = PyObject_GetIter(__pyx_v_layer); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 175, __pyx_L1_error)
+      __pyx_t_8 = -1; __pyx_t_7 = PyObject_GetIter(__pyx_v_layer); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 183, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_9 = Py_TYPE(__pyx_t_7)->tp_iternext; if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 175, __pyx_L1_error)
+      __pyx_t_9 = Py_TYPE(__pyx_t_7)->tp_iternext; if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 183, __pyx_L1_error)
     }
     for (;;) {
       if (likely(!__pyx_t_9)) {
         if (likely(PyList_CheckExact(__pyx_t_7))) {
           if (__pyx_t_8 >= PyList_GET_SIZE(__pyx_t_7)) break;
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_10 = PyList_GET_ITEM(__pyx_t_7, __pyx_t_8); __Pyx_INCREF(__pyx_t_10); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 175, __pyx_L1_error)
+          __pyx_t_10 = PyList_GET_ITEM(__pyx_t_7, __pyx_t_8); __Pyx_INCREF(__pyx_t_10); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 183, __pyx_L1_error)
           #else
-          __pyx_t_10 = PySequence_ITEM(__pyx_t_7, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 175, __pyx_L1_error)
+          __pyx_t_10 = PySequence_ITEM(__pyx_t_7, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 183, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           #endif
         } else {
           if (__pyx_t_8 >= PyTuple_GET_SIZE(__pyx_t_7)) break;
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_10 = PyTuple_GET_ITEM(__pyx_t_7, __pyx_t_8); __Pyx_INCREF(__pyx_t_10); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 175, __pyx_L1_error)
+          __pyx_t_10 = PyTuple_GET_ITEM(__pyx_t_7, __pyx_t_8); __Pyx_INCREF(__pyx_t_10); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 183, __pyx_L1_error)
           #else
-          __pyx_t_10 = PySequence_ITEM(__pyx_t_7, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 175, __pyx_L1_error)
+          __pyx_t_10 = PySequence_ITEM(__pyx_t_7, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 183, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
           #endif
         }
@@ -5996,7 +6347,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
             if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else __PYX_ERR(0, 175, __pyx_L1_error)
+            else __PYX_ERR(0, 183, __pyx_L1_error)
           }
           break;
         }
@@ -6006,20 +6357,20 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
       __pyx_t_10 = 0;
       __Pyx_INCREF(__pyx_t_4);
       __Pyx_XDECREF_SET(__pyx_v_node_idx, __pyx_t_4);
-      __pyx_t_10 = __Pyx_PyInt_AddObjC(__pyx_t_4, __pyx_int_1, 1, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 175, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyInt_AddObjC(__pyx_t_4, __pyx_int_1, 1, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 183, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_4);
       __pyx_t_4 = __pyx_t_10;
       __pyx_t_10 = 0;
 
-      /* "toolbelt/process_trees.pyx":176
+      /* "toolbelt/process_trees.pyx":184
  *             layer_dict = dict()
  *             for node_idx, node in enumerate(layer):
  *                 layer_dict[node_idx] = node.to_dict()             # <<<<<<<<<<<<<<
  *             layers_dict[layer_idx] = layer_dict
  *         ret_val['nodes'] = layers_dict
  */
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_node, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 176, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_node, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 184, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __pyx_t_12 = NULL;
       if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_11))) {
@@ -6033,13 +6384,13 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
       }
       __pyx_t_10 = (__pyx_t_12) ? __Pyx_PyObject_CallOneArg(__pyx_t_11, __pyx_t_12) : __Pyx_PyObject_CallNoArg(__pyx_t_11);
       __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 176, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 184, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(PyDict_SetItem(__pyx_v_layer_dict, __pyx_v_node_idx, __pyx_t_10) < 0)) __PYX_ERR(0, 176, __pyx_L1_error)
+      if (unlikely(PyDict_SetItem(__pyx_v_layer_dict, __pyx_v_node_idx, __pyx_t_10) < 0)) __PYX_ERR(0, 184, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-      /* "toolbelt/process_trees.pyx":175
+      /* "toolbelt/process_trees.pyx":183
  *         for layer_idx, layer in enumerate(layers):
  *             layer_dict = dict()
  *             for node_idx, node in enumerate(layer):             # <<<<<<<<<<<<<<
@@ -6050,16 +6401,16 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "toolbelt/process_trees.pyx":177
+    /* "toolbelt/process_trees.pyx":185
  *             for node_idx, node in enumerate(layer):
  *                 layer_dict[node_idx] = node.to_dict()
  *             layers_dict[layer_idx] = layer_dict             # <<<<<<<<<<<<<<
  *         ret_val['nodes'] = layers_dict
  *         return ret_val
  */
-    if (unlikely(PyDict_SetItem(__pyx_v_layers_dict, __pyx_v_layer_idx, __pyx_v_layer_dict) < 0)) __PYX_ERR(0, 177, __pyx_L1_error)
+    if (unlikely(PyDict_SetItem(__pyx_v_layers_dict, __pyx_v_layer_idx, __pyx_v_layer_dict) < 0)) __PYX_ERR(0, 185, __pyx_L1_error)
 
-    /* "toolbelt/process_trees.pyx":173
+    /* "toolbelt/process_trees.pyx":181
  *         layers = self.get_layers()
  *         layers_dict = dict()
  *         for layer_idx, layer in enumerate(layers):             # <<<<<<<<<<<<<<
@@ -6070,16 +6421,16 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "toolbelt/process_trees.pyx":178
+  /* "toolbelt/process_trees.pyx":186
  *                 layer_dict[node_idx] = node.to_dict()
  *             layers_dict[layer_idx] = layer_dict
  *         ret_val['nodes'] = layers_dict             # <<<<<<<<<<<<<<
  *         return ret_val
  * 
  */
-  if (unlikely(PyDict_SetItem(__pyx_v_ret_val, __pyx_n_u_nodes, __pyx_v_layers_dict) < 0)) __PYX_ERR(0, 178, __pyx_L1_error)
+  if (unlikely(PyDict_SetItem(__pyx_v_ret_val, __pyx_n_u_nodes, __pyx_v_layers_dict) < 0)) __PYX_ERR(0, 186, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":179
+  /* "toolbelt/process_trees.pyx":187
  *             layers_dict[layer_idx] = layer_dict
  *         ret_val['nodes'] = layers_dict
  *         return ret_val             # <<<<<<<<<<<<<<
@@ -6091,8 +6442,8 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
   __pyx_r = __pyx_v_ret_val;
   goto __pyx_L0;
 
-  /* "toolbelt/process_trees.pyx":167
- *         return f"Process Tree for host {self.Host} with {len(self.nodes.keys())} nodes."
+  /* "toolbelt/process_trees.pyx":175
+ *             self.Host.add_tree(self)
  * 
  *     def to_dict(self):             # <<<<<<<<<<<<<<
  *         ret_val = {'tree_id': self.tree_id}
@@ -6124,7 +6475,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":181
+/* "toolbelt/process_trees.pyx":189
  *         return ret_val
  * 
  *     def to_json(self, filepath=None, indent=4):             # <<<<<<<<<<<<<<
@@ -6133,9 +6484,9 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_6to_dict(CYTHO
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_9to_json(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_11ProcessTree_9to_json = {"to_json", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_11ProcessTree_9to_json, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_9to_json(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_13to_json(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_11ProcessTree_13to_json = {"to_json", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_11ProcessTree_13to_json, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_13to_json(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_self = 0;
   PyObject *__pyx_v_filepath = 0;
   PyObject *__pyx_v_indent = 0;
@@ -6179,7 +6530,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_9to_json(PyObj
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "to_json") < 0)) __PYX_ERR(0, 181, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "to_json") < 0)) __PYX_ERR(0, 189, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
@@ -6198,20 +6549,20 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_9to_json(PyObj
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("to_json", 0, 1, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 181, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("to_json", 0, 1, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 189, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("toolbelt.process_trees.ProcessTree.to_json", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(__pyx_self, __pyx_v_self, __pyx_v_filepath, __pyx_v_indent);
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_11ProcessTree_12to_json(__pyx_self, __pyx_v_self, __pyx_v_filepath, __pyx_v_indent);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_filepath, PyObject *__pyx_v_indent) {
+static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12to_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_filepath, PyObject *__pyx_v_indent) {
   PyObject *__pyx_v_f = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -6228,18 +6579,18 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
   PyObject *__pyx_t_11 = NULL;
   __Pyx_RefNannySetupContext("to_json", 0);
 
-  /* "toolbelt/process_trees.pyx":182
+  /* "toolbelt/process_trees.pyx":190
  * 
  *     def to_json(self, filepath=None, indent=4):
  *         if not filepath:             # <<<<<<<<<<<<<<
  *             return json.dumps(self.to_dict(), indent=indent)
  *         else:
  */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_filepath); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 182, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_filepath); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 190, __pyx_L1_error)
   __pyx_t_2 = ((!__pyx_t_1) != 0);
   if (__pyx_t_2) {
 
-    /* "toolbelt/process_trees.pyx":183
+    /* "toolbelt/process_trees.pyx":191
  *     def to_json(self, filepath=None, indent=4):
  *         if not filepath:
  *             return json.dumps(self.to_dict(), indent=indent)             # <<<<<<<<<<<<<<
@@ -6247,12 +6598,12 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
  *             with open(filepath, 'w') as f:
  */
     __Pyx_XDECREF(__pyx_r);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_json); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 183, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_json); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 191, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_dumps); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 183, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_dumps); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 191, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 183, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 191, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_6 = NULL;
     if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_5))) {
@@ -6266,18 +6617,18 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
     }
     __pyx_t_3 = (__pyx_t_6) ? __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_t_6) : __Pyx_PyObject_CallNoArg(__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 183, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 191, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = PyTuple_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 183, __pyx_L1_error)
+    __pyx_t_5 = PyTuple_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 191, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GIVEREF(__pyx_t_3);
     PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_3);
     __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 183, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 191, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_indent, __pyx_v_indent) < 0) __PYX_ERR(0, 183, __pyx_L1_error)
-    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 183, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_indent, __pyx_v_indent) < 0) __PYX_ERR(0, 191, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 191, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -6286,7 +6637,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
     __pyx_t_6 = 0;
     goto __pyx_L0;
 
-    /* "toolbelt/process_trees.pyx":182
+    /* "toolbelt/process_trees.pyx":190
  * 
  *     def to_json(self, filepath=None, indent=4):
  *         if not filepath:             # <<<<<<<<<<<<<<
@@ -6295,7 +6646,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
  */
   }
 
-  /* "toolbelt/process_trees.pyx":185
+  /* "toolbelt/process_trees.pyx":193
  *             return json.dumps(self.to_dict(), indent=indent)
  *         else:
  *             with open(filepath, 'w') as f:             # <<<<<<<<<<<<<<
@@ -6304,7 +6655,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
  */
   /*else*/ {
     /*with:*/ {
-      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 185, __pyx_L1_error)
+      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 193, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_INCREF(__pyx_v_filepath);
       __Pyx_GIVEREF(__pyx_v_filepath);
@@ -6312,12 +6663,12 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
       __Pyx_INCREF(__pyx_n_u_w);
       __Pyx_GIVEREF(__pyx_n_u_w);
       PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_n_u_w);
-      __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_open, __pyx_t_6, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 185, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_open, __pyx_t_6, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 193, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __pyx_t_7 = __Pyx_PyObject_LookupSpecial(__pyx_t_3, __pyx_n_s_exit); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 185, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_LookupSpecial(__pyx_t_3, __pyx_n_s_exit); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 193, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_5 = __Pyx_PyObject_LookupSpecial(__pyx_t_3, __pyx_n_s_enter); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 185, __pyx_L4_error)
+      __pyx_t_5 = __Pyx_PyObject_LookupSpecial(__pyx_t_3, __pyx_n_s_enter); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 193, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_4 = NULL;
       if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_5))) {
@@ -6331,7 +6682,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
       }
       __pyx_t_6 = (__pyx_t_4) ? __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_t_4) : __Pyx_PyObject_CallNoArg(__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 185, __pyx_L4_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 193, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_5 = __pyx_t_6;
@@ -6349,19 +6700,19 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
             __pyx_v_f = __pyx_t_5;
             __pyx_t_5 = 0;
 
-            /* "toolbelt/process_trees.pyx":186
+            /* "toolbelt/process_trees.pyx":194
  *         else:
  *             with open(filepath, 'w') as f:
  *                 json.dump(self.to_dict(), f, indent=indent)             # <<<<<<<<<<<<<<
  * 
  *     def append_proc(self, guid, proc_name, parent_guid=None, timestamp=None, proc_path=None, ignore_structure=False):
  */
-            __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_json); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 186, __pyx_L8_error)
+            __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_json); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 194, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_5);
-            __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_dump); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 186, __pyx_L8_error)
+            __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_dump); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 194, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_3);
             __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-            __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 186, __pyx_L8_error)
+            __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 194, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_6);
             __pyx_t_4 = NULL;
             if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_6))) {
@@ -6375,10 +6726,10 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
             }
             __pyx_t_5 = (__pyx_t_4) ? __Pyx_PyObject_CallOneArg(__pyx_t_6, __pyx_t_4) : __Pyx_PyObject_CallNoArg(__pyx_t_6);
             __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 186, __pyx_L8_error)
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 194, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_5);
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-            __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 186, __pyx_L8_error)
+            __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 194, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_6);
             __Pyx_GIVEREF(__pyx_t_5);
             PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_t_5);
@@ -6386,17 +6737,17 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
             __Pyx_GIVEREF(__pyx_v_f);
             PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_v_f);
             __pyx_t_5 = 0;
-            __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 186, __pyx_L8_error)
+            __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 194, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_5);
-            if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_indent, __pyx_v_indent) < 0) __PYX_ERR(0, 186, __pyx_L8_error)
-            __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_6, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 186, __pyx_L8_error)
+            if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_indent, __pyx_v_indent) < 0) __PYX_ERR(0, 194, __pyx_L8_error)
+            __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_6, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 194, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_4);
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
             __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
             __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-            /* "toolbelt/process_trees.pyx":185
+            /* "toolbelt/process_trees.pyx":193
  *             return json.dumps(self.to_dict(), indent=indent)
  *         else:
  *             with open(filepath, 'w') as f:             # <<<<<<<<<<<<<<
@@ -6415,20 +6766,20 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
           /*except:*/ {
             __Pyx_AddTraceback("toolbelt.process_trees.ProcessTree.to_json", __pyx_clineno, __pyx_lineno, __pyx_filename);
-            if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 185, __pyx_L10_except_error)
+            if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 193, __pyx_L10_except_error)
             __Pyx_GOTREF(__pyx_t_4);
             __Pyx_GOTREF(__pyx_t_5);
             __Pyx_GOTREF(__pyx_t_6);
-            __pyx_t_3 = PyTuple_Pack(3, __pyx_t_4, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 185, __pyx_L10_except_error)
+            __pyx_t_3 = PyTuple_Pack(3, __pyx_t_4, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 193, __pyx_L10_except_error)
             __Pyx_GOTREF(__pyx_t_3);
             __pyx_t_11 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_t_3, NULL);
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-            if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 185, __pyx_L10_except_error)
+            if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 193, __pyx_L10_except_error)
             __Pyx_GOTREF(__pyx_t_11);
             __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_11);
             __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-            if (__pyx_t_2 < 0) __PYX_ERR(0, 185, __pyx_L10_except_error)
+            if (__pyx_t_2 < 0) __PYX_ERR(0, 193, __pyx_L10_except_error)
             __pyx_t_1 = ((!(__pyx_t_2 != 0)) != 0);
             if (__pyx_t_1) {
               __Pyx_GIVEREF(__pyx_t_4);
@@ -6436,7 +6787,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
               __Pyx_XGIVEREF(__pyx_t_6);
               __Pyx_ErrRestoreWithState(__pyx_t_4, __pyx_t_5, __pyx_t_6);
               __pyx_t_4 = 0; __pyx_t_5 = 0; __pyx_t_6 = 0; 
-              __PYX_ERR(0, 185, __pyx_L10_except_error)
+              __PYX_ERR(0, 193, __pyx_L10_except_error)
             }
             __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
             __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -6462,7 +6813,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
           if (__pyx_t_7) {
             __pyx_t_10 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_tuple__4, NULL);
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 185, __pyx_L1_error)
+            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 193, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_10);
             __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
           }
@@ -6478,7 +6829,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
     }
   }
 
-  /* "toolbelt/process_trees.pyx":181
+  /* "toolbelt/process_trees.pyx":189
  *         return ret_val
  * 
  *     def to_json(self, filepath=None, indent=4):             # <<<<<<<<<<<<<<
@@ -6503,7 +6854,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":188
+/* "toolbelt/process_trees.pyx":196
  *                 json.dump(self.to_dict(), f, indent=indent)
  * 
  *     def append_proc(self, guid, proc_name, parent_guid=None, timestamp=None, proc_path=None, ignore_structure=False):             # <<<<<<<<<<<<<<
@@ -6512,10 +6863,10 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_8to_json(CYTHO
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_11append_proc(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static char __pyx_doc_8toolbelt_13process_trees_11ProcessTree_10append_proc[] = "\n        Adds a new node at end of the tree; assumes it is the master node or already has a parent\n        :param guid: GUID of the node to add\n        :param proc_name: process name for the node we're adding\n        :param timestamp: a valid date-time object of when the process was created\n        :param proc_path: the full text of the path to the file\n        :param parent_guid: GUID of the parent process already in the tree\n        :param ignore_structure: if True it will skip checking the tree's structure once the node is added\n        ";
-static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_11ProcessTree_11append_proc = {"append_proc", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_11ProcessTree_11append_proc, METH_VARARGS|METH_KEYWORDS, __pyx_doc_8toolbelt_13process_trees_11ProcessTree_10append_proc};
-static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_11append_proc(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_15append_proc(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static char __pyx_doc_8toolbelt_13process_trees_11ProcessTree_14append_proc[] = "\n        Adds a new node at end of the tree; assumes it is the master node or already has a parent\n        :param guid: GUID of the node to add\n        :param proc_name: process name for the node we're adding\n        :param timestamp: a valid date-time object of when the process was created\n        :param proc_path: the full text of the path to the file\n        :param parent_guid: GUID of the parent process already in the tree\n        :param ignore_structure: if True it will skip checking the tree's structure once the node is added\n        ";
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_11ProcessTree_15append_proc = {"append_proc", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_11ProcessTree_15append_proc, METH_VARARGS|METH_KEYWORDS, __pyx_doc_8toolbelt_13process_trees_11ProcessTree_14append_proc};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_15append_proc(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_self = 0;
   PyObject *__pyx_v_guid = 0;
   PyObject *__pyx_v_proc_name = 0;
@@ -6563,13 +6914,13 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_11append_proc(
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_guid)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("append_proc", 0, 3, 7, 1); __PYX_ERR(0, 188, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("append_proc", 0, 3, 7, 1); __PYX_ERR(0, 196, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_proc_name)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("append_proc", 0, 3, 7, 2); __PYX_ERR(0, 188, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("append_proc", 0, 3, 7, 2); __PYX_ERR(0, 196, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
@@ -6597,7 +6948,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_11append_proc(
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "append_proc") < 0)) __PYX_ERR(0, 188, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "append_proc") < 0)) __PYX_ERR(0, 196, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
@@ -6626,20 +6977,20 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_11append_proc(
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("append_proc", 0, 3, 7, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 188, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("append_proc", 0, 3, 7, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 196, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("toolbelt.process_trees.ProcessTree.append_proc", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(__pyx_self, __pyx_v_self, __pyx_v_guid, __pyx_v_proc_name, __pyx_v_parent_guid, __pyx_v_timestamp, __pyx_v_proc_path, __pyx_v_ignore_structure);
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_11ProcessTree_14append_proc(__pyx_self, __pyx_v_self, __pyx_v_guid, __pyx_v_proc_name, __pyx_v_parent_guid, __pyx_v_timestamp, __pyx_v_proc_path, __pyx_v_ignore_structure);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_guid, PyObject *__pyx_v_proc_name, PyObject *__pyx_v_parent_guid, PyObject *__pyx_v_timestamp, PyObject *__pyx_v_proc_path, PyObject *__pyx_v_ignore_structure) {
+static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_14append_proc(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_guid, PyObject *__pyx_v_proc_name, PyObject *__pyx_v_parent_guid, PyObject *__pyx_v_timestamp, PyObject *__pyx_v_proc_path, PyObject *__pyx_v_ignore_structure) {
   PyObject *__pyx_v_new_node = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -6652,16 +7003,16 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(
   Py_ssize_t __pyx_t_7;
   __Pyx_RefNannySetupContext("append_proc", 0);
 
-  /* "toolbelt/process_trees.pyx":199
+  /* "toolbelt/process_trees.pyx":207
  *         """
  *         # make sure the node isn't in the dict of nodes, and add it
  *         if guid not in self.nodes.keys():             # <<<<<<<<<<<<<<
  *             new_node = Process(guid=guid, proc_name=proc_name, tree=self, timestamp=timestamp, proc_path=proc_path)
  *             self.nodes[guid] = new_node
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 207, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_keys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_keys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 207, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -6676,50 +7027,50 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(
   }
   __pyx_t_1 = (__pyx_t_2) ? __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_2) : __Pyx_PyObject_CallNoArg(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 199, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 207, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_4 = (__Pyx_PySequence_ContainsTF(__pyx_v_guid, __pyx_t_1, Py_NE)); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PySequence_ContainsTF(__pyx_v_guid, __pyx_t_1, Py_NE)); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 207, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_5 = (__pyx_t_4 != 0);
   if (likely(__pyx_t_5)) {
 
-    /* "toolbelt/process_trees.pyx":200
+    /* "toolbelt/process_trees.pyx":208
  *         # make sure the node isn't in the dict of nodes, and add it
  *         if guid not in self.nodes.keys():
  *             new_node = Process(guid=guid, proc_name=proc_name, tree=self, timestamp=timestamp, proc_path=proc_path)             # <<<<<<<<<<<<<<
  *             self.nodes[guid] = new_node
  *         else:  # if the node already exists, raise an error
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Process); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 200, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Process); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 208, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 200, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 208, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_guid, __pyx_v_guid) < 0) __PYX_ERR(0, 200, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_proc_name, __pyx_v_proc_name) < 0) __PYX_ERR(0, 200, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_tree, __pyx_v_self) < 0) __PYX_ERR(0, 200, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_timestamp, __pyx_v_timestamp) < 0) __PYX_ERR(0, 200, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_proc_path, __pyx_v_proc_path) < 0) __PYX_ERR(0, 200, __pyx_L1_error)
-    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 200, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_guid, __pyx_v_guid) < 0) __PYX_ERR(0, 208, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_proc_name, __pyx_v_proc_name) < 0) __PYX_ERR(0, 208, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_tree, __pyx_v_self) < 0) __PYX_ERR(0, 208, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_timestamp, __pyx_v_timestamp) < 0) __PYX_ERR(0, 208, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_proc_path, __pyx_v_proc_path) < 0) __PYX_ERR(0, 208, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 208, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_new_node = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":201
+    /* "toolbelt/process_trees.pyx":209
  *         if guid not in self.nodes.keys():
  *             new_node = Process(guid=guid, proc_name=proc_name, tree=self, timestamp=timestamp, proc_path=proc_path)
  *             self.nodes[guid] = new_node             # <<<<<<<<<<<<<<
  *         else:  # if the node already exists, raise an error
  *             raise ValueError('That node already exists.')
  */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 201, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 209, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    if (unlikely(PyObject_SetItem(__pyx_t_2, __pyx_v_guid, __pyx_v_new_node) < 0)) __PYX_ERR(0, 201, __pyx_L1_error)
+    if (unlikely(PyObject_SetItem(__pyx_t_2, __pyx_v_guid, __pyx_v_new_node) < 0)) __PYX_ERR(0, 209, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":199
+    /* "toolbelt/process_trees.pyx":207
  *         """
  *         # make sure the node isn't in the dict of nodes, and add it
  *         if guid not in self.nodes.keys():             # <<<<<<<<<<<<<<
@@ -6729,7 +7080,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(
     goto __pyx_L3;
   }
 
-  /* "toolbelt/process_trees.pyx":203
+  /* "toolbelt/process_trees.pyx":211
  *             self.nodes[guid] = new_node
  *         else:  # if the node already exists, raise an error
  *             raise ValueError('That node already exists.')             # <<<<<<<<<<<<<<
@@ -6737,30 +7088,30 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(
  *         # if they passed a GUID for a parent, try looking it up and adding it
  */
   /*else*/ {
-    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_tuple__5, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 203, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_tuple__5, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 211, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 203, __pyx_L1_error)
+    __PYX_ERR(0, 211, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "toolbelt/process_trees.pyx":206
+  /* "toolbelt/process_trees.pyx":214
  * 
  *         # if they passed a GUID for a parent, try looking it up and adding it
  *         if parent_guid and parent_guid in self.nodes.keys():             # <<<<<<<<<<<<<<
  *             new_node.find_and_set_parent(parent_guid)
  *         # If the parent GUID is invalid
  */
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_parent_guid); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_parent_guid); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 214, __pyx_L1_error)
   if (__pyx_t_4) {
   } else {
     __pyx_t_5 = __pyx_t_4;
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 214, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_keys); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_keys); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 214, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -6775,24 +7126,24 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(
   }
   __pyx_t_2 = (__pyx_t_3) ? __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_t_3) : __Pyx_PyObject_CallNoArg(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 206, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 214, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_4 = (__Pyx_PySequence_ContainsTF(__pyx_v_parent_guid, __pyx_t_2, Py_EQ)); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PySequence_ContainsTF(__pyx_v_parent_guid, __pyx_t_2, Py_EQ)); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 214, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_6 = (__pyx_t_4 != 0);
   __pyx_t_5 = __pyx_t_6;
   __pyx_L5_bool_binop_done:;
   if (__pyx_t_5) {
 
-    /* "toolbelt/process_trees.pyx":207
+    /* "toolbelt/process_trees.pyx":215
  *         # if they passed a GUID for a parent, try looking it up and adding it
  *         if parent_guid and parent_guid in self.nodes.keys():
  *             new_node.find_and_set_parent(parent_guid)             # <<<<<<<<<<<<<<
  *         # If the parent GUID is invalid
  *         elif parent_guid and parent_guid not in self.nodes.keys():
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_new_node, __pyx_n_s_find_and_set_parent); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 207, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_new_node, __pyx_n_s_find_and_set_parent); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 215, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = NULL;
     if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_1))) {
@@ -6806,12 +7157,12 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(
     }
     __pyx_t_2 = (__pyx_t_3) ? __Pyx_PyObject_Call2Args(__pyx_t_1, __pyx_t_3, __pyx_v_parent_guid) : __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_v_parent_guid);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 207, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 215, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":206
+    /* "toolbelt/process_trees.pyx":214
  * 
  *         # if they passed a GUID for a parent, try looking it up and adding it
  *         if parent_guid and parent_guid in self.nodes.keys():             # <<<<<<<<<<<<<<
@@ -6821,22 +7172,22 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(
     goto __pyx_L4;
   }
 
-  /* "toolbelt/process_trees.pyx":209
+  /* "toolbelt/process_trees.pyx":217
  *             new_node.find_and_set_parent(parent_guid)
  *         # If the parent GUID is invalid
  *         elif parent_guid and parent_guid not in self.nodes.keys():             # <<<<<<<<<<<<<<
  *             raise ValueError('The designated parent GUID does not exist.')
  *         # Make sure that the node we added did not break the tree structure into multiple trees
  */
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_parent_guid); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_parent_guid); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 217, __pyx_L1_error)
   if (__pyx_t_6) {
   } else {
     __pyx_t_5 = __pyx_t_6;
     goto __pyx_L7_bool_binop_done;
   }
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_keys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_keys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = NULL;
@@ -6851,30 +7202,30 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(
   }
   __pyx_t_2 = (__pyx_t_1) ? __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_1) : __Pyx_PyObject_CallNoArg(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 209, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_v_parent_guid, __pyx_t_2, Py_NE)); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_v_parent_guid, __pyx_t_2, Py_NE)); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_4 = (__pyx_t_6 != 0);
   __pyx_t_5 = __pyx_t_4;
   __pyx_L7_bool_binop_done:;
   if (unlikely(__pyx_t_5)) {
 
-    /* "toolbelt/process_trees.pyx":210
+    /* "toolbelt/process_trees.pyx":218
  *         # If the parent GUID is invalid
  *         elif parent_guid and parent_guid not in self.nodes.keys():
  *             raise ValueError('The designated parent GUID does not exist.')             # <<<<<<<<<<<<<<
  *         # Make sure that the node we added did not break the tree structure into multiple trees
  *         if not ignore_structure and len(self.nodes.keys()) > 1:
  */
-    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_tuple__6, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 210, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_tuple__6, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 218, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 210, __pyx_L1_error)
+    __PYX_ERR(0, 218, __pyx_L1_error)
 
-    /* "toolbelt/process_trees.pyx":209
+    /* "toolbelt/process_trees.pyx":217
  *             new_node.find_and_set_parent(parent_guid)
  *         # If the parent GUID is invalid
  *         elif parent_guid and parent_guid not in self.nodes.keys():             # <<<<<<<<<<<<<<
@@ -6884,23 +7235,23 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(
   }
   __pyx_L4:;
 
-  /* "toolbelt/process_trees.pyx":212
+  /* "toolbelt/process_trees.pyx":220
  *             raise ValueError('The designated parent GUID does not exist.')
  *         # Make sure that the node we added did not break the tree structure into multiple trees
  *         if not ignore_structure and len(self.nodes.keys()) > 1:             # <<<<<<<<<<<<<<
  *             self.check_tree()
  * 
  */
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_ignore_structure); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_ignore_structure); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 220, __pyx_L1_error)
   __pyx_t_6 = ((!__pyx_t_4) != 0);
   if (__pyx_t_6) {
   } else {
     __pyx_t_5 = __pyx_t_6;
     goto __pyx_L10_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 220, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_keys); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_keys); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 220, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -6915,24 +7266,24 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(
   }
   __pyx_t_2 = (__pyx_t_3) ? __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_t_3) : __Pyx_PyObject_CallNoArg(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 212, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 220, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_7 = PyObject_Length(__pyx_t_2); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 212, __pyx_L1_error)
+  __pyx_t_7 = PyObject_Length(__pyx_t_2); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 220, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_6 = ((__pyx_t_7 > 1) != 0);
   __pyx_t_5 = __pyx_t_6;
   __pyx_L10_bool_binop_done:;
   if (__pyx_t_5) {
 
-    /* "toolbelt/process_trees.pyx":213
+    /* "toolbelt/process_trees.pyx":221
  *         # Make sure that the node we added did not break the tree structure into multiple trees
  *         if not ignore_structure and len(self.nodes.keys()) > 1:
  *             self.check_tree()             # <<<<<<<<<<<<<<
  * 
  *     def push_proc(self, guid, proc_name, children_guids=(), timestamp=None, proc_path=None, ignore_structure=False):
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_check_tree); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 213, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_check_tree); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 221, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = NULL;
     if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_1))) {
@@ -6946,12 +7297,12 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(
     }
     __pyx_t_2 = (__pyx_t_3) ? __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_t_3) : __Pyx_PyObject_CallNoArg(__pyx_t_1);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 213, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 221, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":212
+    /* "toolbelt/process_trees.pyx":220
  *             raise ValueError('The designated parent GUID does not exist.')
  *         # Make sure that the node we added did not break the tree structure into multiple trees
  *         if not ignore_structure and len(self.nodes.keys()) > 1:             # <<<<<<<<<<<<<<
@@ -6960,7 +7311,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(
  */
   }
 
-  /* "toolbelt/process_trees.pyx":188
+  /* "toolbelt/process_trees.pyx":196
  *                 json.dump(self.to_dict(), f, indent=indent)
  * 
  *     def append_proc(self, guid, proc_name, parent_guid=None, timestamp=None, proc_path=None, ignore_structure=False):             # <<<<<<<<<<<<<<
@@ -6984,7 +7335,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":215
+/* "toolbelt/process_trees.pyx":223
  *             self.check_tree()
  * 
  *     def push_proc(self, guid, proc_name, children_guids=(), timestamp=None, proc_path=None, ignore_structure=False):             # <<<<<<<<<<<<<<
@@ -6993,10 +7344,10 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_10append_proc(
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_13push_proc(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static char __pyx_doc_8toolbelt_13process_trees_11ProcessTree_12push_proc[] = "\n        Add a new parent node to the structure, needs to be setting the master node as a child, otherwise it will break\n        the tree structure and trip an error\n        :param guid: GUID of new node\n        :param proc_name: process name for the new node\n        :param timestamp: a valid date-time object of when the process was created\n        :param proc_path: the full text of the path to the file\n        :param children_guids: child node(s) to link to.  Needs to contain the master node...\n        :param ignore_structure: if True it will skip checking the tree's structure once the node is added\n        ";
-static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_11ProcessTree_13push_proc = {"push_proc", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_11ProcessTree_13push_proc, METH_VARARGS|METH_KEYWORDS, __pyx_doc_8toolbelt_13process_trees_11ProcessTree_12push_proc};
-static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_13push_proc(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_17push_proc(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static char __pyx_doc_8toolbelt_13process_trees_11ProcessTree_16push_proc[] = "\n        Add a new parent node to the structure, needs to be setting the master node as a child, otherwise it will break\n        the tree structure and trip an error\n        :param guid: GUID of new node\n        :param proc_name: process name for the new node\n        :param timestamp: a valid date-time object of when the process was created\n        :param proc_path: the full text of the path to the file\n        :param children_guids: child node(s) to link to.  Needs to contain the master node...\n        :param ignore_structure: if True it will skip checking the tree's structure once the node is added\n        ";
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_11ProcessTree_17push_proc = {"push_proc", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_11ProcessTree_17push_proc, METH_VARARGS|METH_KEYWORDS, __pyx_doc_8toolbelt_13process_trees_11ProcessTree_16push_proc};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_17push_proc(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_self = 0;
   PyObject *__pyx_v_guid = 0;
   PyObject *__pyx_v_proc_name = 0;
@@ -7044,13 +7395,13 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_13push_proc(Py
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_guid)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("push_proc", 0, 3, 7, 1); __PYX_ERR(0, 215, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("push_proc", 0, 3, 7, 1); __PYX_ERR(0, 223, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_proc_name)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("push_proc", 0, 3, 7, 2); __PYX_ERR(0, 215, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("push_proc", 0, 3, 7, 2); __PYX_ERR(0, 223, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
@@ -7078,7 +7429,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_13push_proc(Py
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "push_proc") < 0)) __PYX_ERR(0, 215, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "push_proc") < 0)) __PYX_ERR(0, 223, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
@@ -7107,20 +7458,20 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_11ProcessTree_13push_proc(Py
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("push_proc", 0, 3, 7, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 215, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("push_proc", 0, 3, 7, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 223, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("toolbelt.process_trees.ProcessTree.push_proc", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(__pyx_self, __pyx_v_self, __pyx_v_guid, __pyx_v_proc_name, __pyx_v_children_guids, __pyx_v_timestamp, __pyx_v_proc_path, __pyx_v_ignore_structure);
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_11ProcessTree_16push_proc(__pyx_self, __pyx_v_self, __pyx_v_guid, __pyx_v_proc_name, __pyx_v_children_guids, __pyx_v_timestamp, __pyx_v_proc_path, __pyx_v_ignore_structure);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_guid, PyObject *__pyx_v_proc_name, PyObject *__pyx_v_children_guids, PyObject *__pyx_v_timestamp, PyObject *__pyx_v_proc_path, PyObject *__pyx_v_ignore_structure) {
+static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_16push_proc(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_guid, PyObject *__pyx_v_proc_name, PyObject *__pyx_v_children_guids, PyObject *__pyx_v_timestamp, PyObject *__pyx_v_proc_path, PyObject *__pyx_v_ignore_structure) {
   PyObject *__pyx_v_new_node = NULL;
   PyObject *__pyx_v_child_guid = NULL;
   PyObject *__pyx_r = NULL;
@@ -7136,16 +7487,16 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CY
   int __pyx_t_9;
   __Pyx_RefNannySetupContext("push_proc", 0);
 
-  /* "toolbelt/process_trees.pyx":226
+  /* "toolbelt/process_trees.pyx":234
  *         :param ignore_structure: if True it will skip checking the tree's structure once the node is added
  *         """
  *         if guid not in self.nodes.keys():             # <<<<<<<<<<<<<<
  *             new_node = Process(guid=guid, proc_name=proc_name, tree=self, timestamp=timestamp, proc_path=proc_path)
  *             self.nodes[guid] = new_node
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 234, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_keys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_keys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 234, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -7160,50 +7511,50 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CY
   }
   __pyx_t_1 = (__pyx_t_2) ? __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_2) : __Pyx_PyObject_CallNoArg(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 226, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 234, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_4 = (__Pyx_PySequence_ContainsTF(__pyx_v_guid, __pyx_t_1, Py_NE)); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PySequence_ContainsTF(__pyx_v_guid, __pyx_t_1, Py_NE)); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 234, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_5 = (__pyx_t_4 != 0);
   if (likely(__pyx_t_5)) {
 
-    /* "toolbelt/process_trees.pyx":227
+    /* "toolbelt/process_trees.pyx":235
  *         """
  *         if guid not in self.nodes.keys():
  *             new_node = Process(guid=guid, proc_name=proc_name, tree=self, timestamp=timestamp, proc_path=proc_path)             # <<<<<<<<<<<<<<
  *             self.nodes[guid] = new_node
  *         else:
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Process); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 227, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Process); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 235, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 227, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 235, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_guid, __pyx_v_guid) < 0) __PYX_ERR(0, 227, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_proc_name, __pyx_v_proc_name) < 0) __PYX_ERR(0, 227, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_tree, __pyx_v_self) < 0) __PYX_ERR(0, 227, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_timestamp, __pyx_v_timestamp) < 0) __PYX_ERR(0, 227, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_proc_path, __pyx_v_proc_path) < 0) __PYX_ERR(0, 227, __pyx_L1_error)
-    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 227, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_guid, __pyx_v_guid) < 0) __PYX_ERR(0, 235, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_proc_name, __pyx_v_proc_name) < 0) __PYX_ERR(0, 235, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_tree, __pyx_v_self) < 0) __PYX_ERR(0, 235, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_timestamp, __pyx_v_timestamp) < 0) __PYX_ERR(0, 235, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_proc_path, __pyx_v_proc_path) < 0) __PYX_ERR(0, 235, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 235, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_new_node = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":228
+    /* "toolbelt/process_trees.pyx":236
  *         if guid not in self.nodes.keys():
  *             new_node = Process(guid=guid, proc_name=proc_name, tree=self, timestamp=timestamp, proc_path=proc_path)
  *             self.nodes[guid] = new_node             # <<<<<<<<<<<<<<
  *         else:
  *             raise ValueError('That node already exists')
  */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 228, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 236, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    if (unlikely(PyObject_SetItem(__pyx_t_2, __pyx_v_guid, __pyx_v_new_node) < 0)) __PYX_ERR(0, 228, __pyx_L1_error)
+    if (unlikely(PyObject_SetItem(__pyx_t_2, __pyx_v_guid, __pyx_v_new_node) < 0)) __PYX_ERR(0, 236, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":226
+    /* "toolbelt/process_trees.pyx":234
  *         :param ignore_structure: if True it will skip checking the tree's structure once the node is added
  *         """
  *         if guid not in self.nodes.keys():             # <<<<<<<<<<<<<<
@@ -7213,7 +7564,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CY
     goto __pyx_L3;
   }
 
-  /* "toolbelt/process_trees.pyx":230
+  /* "toolbelt/process_trees.pyx":238
  *             self.nodes[guid] = new_node
  *         else:
  *             raise ValueError('That node already exists')             # <<<<<<<<<<<<<<
@@ -7221,26 +7572,26 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CY
  *         if len(children_guids) > 0:
  */
   /*else*/ {
-    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_tuple__7, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 230, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_tuple__7, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 238, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 230, __pyx_L1_error)
+    __PYX_ERR(0, 238, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "toolbelt/process_trees.pyx":232
+  /* "toolbelt/process_trees.pyx":240
  *             raise ValueError('That node already exists')
  * 
  *         if len(children_guids) > 0:             # <<<<<<<<<<<<<<
  *             for child_guid in children_guids:
  *                 new_node.find_and_add_child(child_guid)
  */
-  __pyx_t_6 = PyObject_Length(__pyx_v_children_guids); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 232, __pyx_L1_error)
+  __pyx_t_6 = PyObject_Length(__pyx_v_children_guids); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 240, __pyx_L1_error)
   __pyx_t_5 = ((__pyx_t_6 > 0) != 0);
   if (__pyx_t_5) {
 
-    /* "toolbelt/process_trees.pyx":233
+    /* "toolbelt/process_trees.pyx":241
  * 
  *         if len(children_guids) > 0:
  *             for child_guid in children_guids:             # <<<<<<<<<<<<<<
@@ -7251,26 +7602,26 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CY
       __pyx_t_2 = __pyx_v_children_guids; __Pyx_INCREF(__pyx_t_2); __pyx_t_6 = 0;
       __pyx_t_7 = NULL;
     } else {
-      __pyx_t_6 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_v_children_guids); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 233, __pyx_L1_error)
+      __pyx_t_6 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_v_children_guids); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 241, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_7 = Py_TYPE(__pyx_t_2)->tp_iternext; if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 233, __pyx_L1_error)
+      __pyx_t_7 = Py_TYPE(__pyx_t_2)->tp_iternext; if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 241, __pyx_L1_error)
     }
     for (;;) {
       if (likely(!__pyx_t_7)) {
         if (likely(PyList_CheckExact(__pyx_t_2))) {
           if (__pyx_t_6 >= PyList_GET_SIZE(__pyx_t_2)) break;
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_3 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_6); __Pyx_INCREF(__pyx_t_3); __pyx_t_6++; if (unlikely(0 < 0)) __PYX_ERR(0, 233, __pyx_L1_error)
+          __pyx_t_3 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_6); __Pyx_INCREF(__pyx_t_3); __pyx_t_6++; if (unlikely(0 < 0)) __PYX_ERR(0, 241, __pyx_L1_error)
           #else
-          __pyx_t_3 = PySequence_ITEM(__pyx_t_2, __pyx_t_6); __pyx_t_6++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 233, __pyx_L1_error)
+          __pyx_t_3 = PySequence_ITEM(__pyx_t_2, __pyx_t_6); __pyx_t_6++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 241, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
           #endif
         } else {
           if (__pyx_t_6 >= PyTuple_GET_SIZE(__pyx_t_2)) break;
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_6); __Pyx_INCREF(__pyx_t_3); __pyx_t_6++; if (unlikely(0 < 0)) __PYX_ERR(0, 233, __pyx_L1_error)
+          __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_6); __Pyx_INCREF(__pyx_t_3); __pyx_t_6++; if (unlikely(0 < 0)) __PYX_ERR(0, 241, __pyx_L1_error)
           #else
-          __pyx_t_3 = PySequence_ITEM(__pyx_t_2, __pyx_t_6); __pyx_t_6++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 233, __pyx_L1_error)
+          __pyx_t_3 = PySequence_ITEM(__pyx_t_2, __pyx_t_6); __pyx_t_6++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 241, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
           #endif
         }
@@ -7280,7 +7631,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CY
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
             if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else __PYX_ERR(0, 233, __pyx_L1_error)
+            else __PYX_ERR(0, 241, __pyx_L1_error)
           }
           break;
         }
@@ -7289,14 +7640,14 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CY
       __Pyx_XDECREF_SET(__pyx_v_child_guid, __pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "toolbelt/process_trees.pyx":234
+      /* "toolbelt/process_trees.pyx":242
  *         if len(children_guids) > 0:
  *             for child_guid in children_guids:
  *                 new_node.find_and_add_child(child_guid)             # <<<<<<<<<<<<<<
  *         # Make sure that the node we added did not break the tree structure into multiple trees
  *         if not ignore_structure and len(self.nodes.keys()) > 1:
  */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_new_node, __pyx_n_s_find_and_add_child); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 234, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_new_node, __pyx_n_s_find_and_add_child); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 242, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_8 = NULL;
       if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_1))) {
@@ -7310,12 +7661,12 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CY
       }
       __pyx_t_3 = (__pyx_t_8) ? __Pyx_PyObject_Call2Args(__pyx_t_1, __pyx_t_8, __pyx_v_child_guid) : __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_v_child_guid);
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 234, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 242, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-      /* "toolbelt/process_trees.pyx":233
+      /* "toolbelt/process_trees.pyx":241
  * 
  *         if len(children_guids) > 0:
  *             for child_guid in children_guids:             # <<<<<<<<<<<<<<
@@ -7325,7 +7676,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CY
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":232
+    /* "toolbelt/process_trees.pyx":240
  *             raise ValueError('That node already exists')
  * 
  *         if len(children_guids) > 0:             # <<<<<<<<<<<<<<
@@ -7334,23 +7685,23 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CY
  */
   }
 
-  /* "toolbelt/process_trees.pyx":236
+  /* "toolbelt/process_trees.pyx":244
  *                 new_node.find_and_add_child(child_guid)
  *         # Make sure that the node we added did not break the tree structure into multiple trees
  *         if not ignore_structure and len(self.nodes.keys()) > 1:             # <<<<<<<<<<<<<<
  *             self.check_tree()
  * 
  */
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_ignore_structure); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 236, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_ignore_structure); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 244, __pyx_L1_error)
   __pyx_t_9 = ((!__pyx_t_4) != 0);
   if (__pyx_t_9) {
   } else {
     __pyx_t_5 = __pyx_t_9;
     goto __pyx_L8_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 236, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_nodes); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_keys); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 236, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_keys); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -7365,24 +7716,24 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CY
   }
   __pyx_t_2 = (__pyx_t_3) ? __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_t_3) : __Pyx_PyObject_CallNoArg(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 236, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_6 = PyObject_Length(__pyx_t_2); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 236, __pyx_L1_error)
+  __pyx_t_6 = PyObject_Length(__pyx_t_2); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_9 = ((__pyx_t_6 > 1) != 0);
   __pyx_t_5 = __pyx_t_9;
   __pyx_L8_bool_binop_done:;
   if (__pyx_t_5) {
 
-    /* "toolbelt/process_trees.pyx":237
+    /* "toolbelt/process_trees.pyx":245
  *         # Make sure that the node we added did not break the tree structure into multiple trees
  *         if not ignore_structure and len(self.nodes.keys()) > 1:
  *             self.check_tree()             # <<<<<<<<<<<<<<
  * 
  * 
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_check_tree); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 237, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_check_tree); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 245, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = NULL;
     if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_1))) {
@@ -7396,12 +7747,12 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CY
     }
     __pyx_t_2 = (__pyx_t_3) ? __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_t_3) : __Pyx_PyObject_CallNoArg(__pyx_t_1);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 237, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 245, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":236
+    /* "toolbelt/process_trees.pyx":244
  *                 new_node.find_and_add_child(child_guid)
  *         # Make sure that the node we added did not break the tree structure into multiple trees
  *         if not ignore_structure and len(self.nodes.keys()) > 1:             # <<<<<<<<<<<<<<
@@ -7410,7 +7761,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CY
  */
   }
 
-  /* "toolbelt/process_trees.pyx":215
+  /* "toolbelt/process_trees.pyx":223
  *             self.check_tree()
  * 
  *     def push_proc(self, guid, proc_name, children_guids=(), timestamp=None, proc_path=None, ignore_structure=False):             # <<<<<<<<<<<<<<
@@ -7436,7 +7787,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_11ProcessTree_12push_proc(CY
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":244
+/* "toolbelt/process_trees.pyx":252
  *     A node is a single instance of a process.  It can have only 1 parent (not required) but n children.
  *     """
  *     def __init__(self, guid, proc_name, tree, timestamp=None, proc_path=None):             # <<<<<<<<<<<<<<
@@ -7490,19 +7841,19 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_7Process_1__init__(PyObject 
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_guid)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 0, 4, 6, 1); __PYX_ERR(0, 244, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 0, 4, 6, 1); __PYX_ERR(0, 252, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_proc_name)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 0, 4, 6, 2); __PYX_ERR(0, 244, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 0, 4, 6, 2); __PYX_ERR(0, 252, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (likely((values[3] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_tree)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 0, 4, 6, 3); __PYX_ERR(0, 244, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 0, 4, 6, 3); __PYX_ERR(0, 252, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  4:
@@ -7518,7 +7869,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_7Process_1__init__(PyObject 
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__init__") < 0)) __PYX_ERR(0, 244, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__init__") < 0)) __PYX_ERR(0, 252, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
@@ -7543,7 +7894,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_7Process_1__init__(PyObject 
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 4, 6, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 244, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 4, 6, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 252, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("toolbelt.process_trees.Process.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -7565,55 +7916,55 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process___init__(CYTHON_UNU
   PyObject *__pyx_t_4 = NULL;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "toolbelt/process_trees.pyx":245
+  /* "toolbelt/process_trees.pyx":253
  *     """
  *     def __init__(self, guid, proc_name, tree, timestamp=None, proc_path=None):
  *         Node.__init__(self, node_id=guid, name=proc_name, tree=tree,)             # <<<<<<<<<<<<<<
  *         # Inherited =
  *         #   self.node_id = str(node_id)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Node); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 245, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Node); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 245, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyTuple_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 245, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v_self);
   __Pyx_GIVEREF(__pyx_v_self);
   PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_self);
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 245, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_node_id, __pyx_v_guid) < 0) __PYX_ERR(0, 245, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_name, __pyx_v_proc_name) < 0) __PYX_ERR(0, 245, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_tree, __pyx_v_tree) < 0) __PYX_ERR(0, 245, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_1, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 245, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_node_id, __pyx_v_guid) < 0) __PYX_ERR(0, 253, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_name, __pyx_v_proc_name) < 0) __PYX_ERR(0, 253, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_tree, __pyx_v_tree) < 0) __PYX_ERR(0, 253, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_1, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "toolbelt/process_trees.pyx":252
+  /* "toolbelt/process_trees.pyx":260
  *         #   self.parent = None
  *         #   self.children = []
  *         self.proc_path = str(proc_path)             # <<<<<<<<<<<<<<
  *         self.timestamp = self.fix_date(timestamp)
  * 
  */
-  __pyx_t_4 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyUnicode_Type)), __pyx_v_proc_path); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 252, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyUnicode_Type)), __pyx_v_proc_path); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 260, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_proc_path, __pyx_t_4) < 0) __PYX_ERR(0, 252, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_proc_path, __pyx_t_4) < 0) __PYX_ERR(0, 260, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "toolbelt/process_trees.pyx":253
+  /* "toolbelt/process_trees.pyx":261
  *         #   self.children = []
  *         self.proc_path = str(proc_path)
  *         self.timestamp = self.fix_date(timestamp)             # <<<<<<<<<<<<<<
  * 
  *     def __repr__(self):
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fix_date); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 253, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fix_date); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 261, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_1 = NULL;
   if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_3))) {
@@ -7627,13 +7978,13 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process___init__(CYTHON_UNU
   }
   __pyx_t_4 = (__pyx_t_1) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_1, __pyx_v_timestamp) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_timestamp);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 253, __pyx_L1_error)
+  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 261, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_timestamp, __pyx_t_4) < 0) __PYX_ERR(0, 253, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_timestamp, __pyx_t_4) < 0) __PYX_ERR(0, 261, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "toolbelt/process_trees.pyx":244
+  /* "toolbelt/process_trees.pyx":252
  *     A node is a single instance of a process.  It can have only 1 parent (not required) but n children.
  *     """
  *     def __init__(self, guid, proc_name, tree, timestamp=None, proc_path=None):             # <<<<<<<<<<<<<<
@@ -7657,7 +8008,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process___init__(CYTHON_UNU
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":255
+/* "toolbelt/process_trees.pyx":263
  *         self.timestamp = self.fix_date(timestamp)
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -7689,7 +8040,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_2__repr__(CYTHON_UN
   PyObject *__pyx_t_5 = NULL;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "toolbelt/process_trees.pyx":256
+  /* "toolbelt/process_trees.pyx":264
  * 
  *     def __repr__(self):
  *         return f"<Instance of Process with ID:{self.node_id} in ProcessTree:{self.Tree.tree_id}>"             # <<<<<<<<<<<<<<
@@ -7697,7 +8048,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_2__repr__(CYTHON_UN
  *     def __str__(self):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 264, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = 0;
   __pyx_t_3 = 127;
@@ -7705,9 +8056,9 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_2__repr__(CYTHON_UN
   __pyx_t_2 += 29;
   __Pyx_GIVEREF(__pyx_kp_u_Instance_of_Process_with_ID);
   PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u_Instance_of_Process_with_ID);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_node_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_node_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 264, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 264, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_3;
@@ -7719,12 +8070,12 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_2__repr__(CYTHON_UN
   __pyx_t_2 += 16;
   __Pyx_GIVEREF(__pyx_kp_u_in_ProcessTree);
   PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_kp_u_in_ProcessTree);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_Tree); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_Tree); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 264, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 264, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 264, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_3;
@@ -7736,14 +8087,14 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_2__repr__(CYTHON_UN
   __pyx_t_2 += 1;
   __Pyx_GIVEREF(__pyx_kp_u_);
   PyTuple_SET_ITEM(__pyx_t_1, 4, __pyx_kp_u_);
-  __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_1, 5, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_1, 5, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 264, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_5;
   __pyx_t_5 = 0;
   goto __pyx_L0;
 
-  /* "toolbelt/process_trees.pyx":255
+  /* "toolbelt/process_trees.pyx":263
  *         self.timestamp = self.fix_date(timestamp)
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -7764,7 +8115,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_2__repr__(CYTHON_UN
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":258
+/* "toolbelt/process_trees.pyx":266
  *         return f"<Instance of Process with ID:{self.node_id} in ProcessTree:{self.Tree.tree_id}>"
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
@@ -7796,7 +8147,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_4__str__(CYTHON_UNU
   PyObject *__pyx_t_5 = NULL;
   __Pyx_RefNannySetupContext("__str__", 0);
 
-  /* "toolbelt/process_trees.pyx":259
+  /* "toolbelt/process_trees.pyx":267
  * 
  *     def __str__(self):
  *         return f"Process Instance of {self.name} with ID {self.node_id} in Process Tree {self.Tree.tree_id}"             # <<<<<<<<<<<<<<
@@ -7804,7 +8155,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_4__str__(CYTHON_UNU
  *     @staticmethod
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = 0;
   __pyx_t_3 = 127;
@@ -7812,9 +8163,9 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_4__str__(CYTHON_UNU
   __pyx_t_2 += 20;
   __Pyx_GIVEREF(__pyx_kp_u_Process_Instance_of);
   PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u_Process_Instance_of);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) : __pyx_t_3;
@@ -7826,9 +8177,9 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_4__str__(CYTHON_UNU
   __pyx_t_2 += 9;
   __Pyx_GIVEREF(__pyx_kp_u_with_ID);
   PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_kp_u_with_ID);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_node_id); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_node_id); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_3;
@@ -7840,12 +8191,12 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_4__str__(CYTHON_UNU
   __pyx_t_2 += 17;
   __Pyx_GIVEREF(__pyx_kp_u_in_Process_Tree);
   PyTuple_SET_ITEM(__pyx_t_1, 4, __pyx_kp_u_in_Process_Tree);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_Tree); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_Tree); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_tree_id); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_3;
@@ -7853,14 +8204,14 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_4__str__(CYTHON_UNU
   __Pyx_GIVEREF(__pyx_t_4);
   PyTuple_SET_ITEM(__pyx_t_1, 5, __pyx_t_4);
   __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 6, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 6, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_4;
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "toolbelt/process_trees.pyx":258
+  /* "toolbelt/process_trees.pyx":266
  *         return f"<Instance of Process with ID:{self.node_id} in ProcessTree:{self.Tree.tree_id}>"
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
@@ -7881,7 +8232,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_4__str__(CYTHON_UNU
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":262
+/* "toolbelt/process_trees.pyx":270
  * 
  *     @staticmethod
  *     def fix_date(passed_date):             # <<<<<<<<<<<<<<
@@ -7915,16 +8266,16 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_6fix_date(CYTHON_UN
   int __pyx_t_5;
   __Pyx_RefNannySetupContext("fix_date", 0);
 
-  /* "toolbelt/process_trees.pyx":269
+  /* "toolbelt/process_trees.pyx":277
  *         :return: a np.datetime64 time or None
  *         """
  *         clean_date = np.datetime64(passed_date)             # <<<<<<<<<<<<<<
  *         if not np.isnat(clean_date):
  *             return np.datetime64(passed_date)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 269, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 277, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_datetime64); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 269, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_datetime64); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 277, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -7939,22 +8290,22 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_6fix_date(CYTHON_UN
   }
   __pyx_t_1 = (__pyx_t_2) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_2, __pyx_v_passed_date) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_passed_date);
   __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 269, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 277, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_clean_date = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "toolbelt/process_trees.pyx":270
+  /* "toolbelt/process_trees.pyx":278
  *         """
  *         clean_date = np.datetime64(passed_date)
  *         if not np.isnat(clean_date):             # <<<<<<<<<<<<<<
  *             return np.datetime64(passed_date)
  *         else:
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 270, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_isnat); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 270, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_isnat); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -7969,15 +8320,15 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_6fix_date(CYTHON_UN
   }
   __pyx_t_1 = (__pyx_t_3) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_3, __pyx_v_clean_date) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_v_clean_date);
   __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 270, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 270, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_4 < 0)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_5 = ((!__pyx_t_4) != 0);
   if (__pyx_t_5) {
 
-    /* "toolbelt/process_trees.pyx":271
+    /* "toolbelt/process_trees.pyx":279
  *         clean_date = np.datetime64(passed_date)
  *         if not np.isnat(clean_date):
  *             return np.datetime64(passed_date)             # <<<<<<<<<<<<<<
@@ -7985,9 +8336,9 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_6fix_date(CYTHON_UN
  *             return None
  */
     __Pyx_XDECREF(__pyx_r);
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 271, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 279, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_datetime64); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 271, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_datetime64); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 279, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_2 = NULL;
@@ -8002,14 +8353,14 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_6fix_date(CYTHON_UN
     }
     __pyx_t_1 = (__pyx_t_2) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_2, __pyx_v_passed_date) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_passed_date);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 271, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 279, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "toolbelt/process_trees.pyx":270
+    /* "toolbelt/process_trees.pyx":278
  *         """
  *         clean_date = np.datetime64(passed_date)
  *         if not np.isnat(clean_date):             # <<<<<<<<<<<<<<
@@ -8018,7 +8369,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_6fix_date(CYTHON_UN
  */
   }
 
-  /* "toolbelt/process_trees.pyx":273
+  /* "toolbelt/process_trees.pyx":281
  *             return np.datetime64(passed_date)
  *         else:
  *             return None             # <<<<<<<<<<<<<<
@@ -8031,7 +8382,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_6fix_date(CYTHON_UN
     goto __pyx_L0;
   }
 
-  /* "toolbelt/process_trees.pyx":262
+  /* "toolbelt/process_trees.pyx":270
  * 
  *     @staticmethod
  *     def fix_date(passed_date):             # <<<<<<<<<<<<<<
@@ -8053,7 +8404,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_6fix_date(CYTHON_UN
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":275
+/* "toolbelt/process_trees.pyx":283
  *             return None
  * 
  *     def to_dict(self):             # <<<<<<<<<<<<<<
@@ -8084,16 +8435,16 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_8to_dict(CYTHON_UNU
   PyObject *__pyx_t_3 = NULL;
   __Pyx_RefNannySetupContext("to_dict", 0);
 
-  /* "toolbelt/process_trees.pyx":276
+  /* "toolbelt/process_trees.pyx":284
  * 
  *     def to_dict(self):
  *         ret_val = Node.to_dict(self)             # <<<<<<<<<<<<<<
  *         ret_val['proc_path'] = self.proc_path
  *         ret_val['timestamp'] = str(self.timestamp)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_Node); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 276, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_Node); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 284, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 276, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 284, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -8108,40 +8459,40 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_8to_dict(CYTHON_UNU
   }
   __pyx_t_1 = (__pyx_t_2) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_2, __pyx_v_self) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_self);
   __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 276, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 284, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_ret_val = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "toolbelt/process_trees.pyx":277
+  /* "toolbelt/process_trees.pyx":285
  *     def to_dict(self):
  *         ret_val = Node.to_dict(self)
  *         ret_val['proc_path'] = self.proc_path             # <<<<<<<<<<<<<<
  *         ret_val['timestamp'] = str(self.timestamp)
  *         return ret_val
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_proc_path); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 277, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_proc_path); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 285, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (unlikely(PyObject_SetItem(__pyx_v_ret_val, __pyx_n_u_proc_path, __pyx_t_1) < 0)) __PYX_ERR(0, 277, __pyx_L1_error)
+  if (unlikely(PyObject_SetItem(__pyx_v_ret_val, __pyx_n_u_proc_path, __pyx_t_1) < 0)) __PYX_ERR(0, 285, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "toolbelt/process_trees.pyx":278
+  /* "toolbelt/process_trees.pyx":286
  *         ret_val = Node.to_dict(self)
  *         ret_val['proc_path'] = self.proc_path
  *         ret_val['timestamp'] = str(self.timestamp)             # <<<<<<<<<<<<<<
  *         return ret_val
  * 
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_timestamp); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 278, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_timestamp); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 286, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyUnicode_Type)), __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 278, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyUnicode_Type)), __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 286, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(PyObject_SetItem(__pyx_v_ret_val, __pyx_n_u_timestamp, __pyx_t_3) < 0)) __PYX_ERR(0, 278, __pyx_L1_error)
+  if (unlikely(PyObject_SetItem(__pyx_v_ret_val, __pyx_n_u_timestamp, __pyx_t_3) < 0)) __PYX_ERR(0, 286, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "toolbelt/process_trees.pyx":279
+  /* "toolbelt/process_trees.pyx":287
  *         ret_val['proc_path'] = self.proc_path
  *         ret_val['timestamp'] = str(self.timestamp)
  *         return ret_val             # <<<<<<<<<<<<<<
@@ -8153,7 +8504,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_8to_dict(CYTHON_UNU
   __pyx_r = __pyx_v_ret_val;
   goto __pyx_L0;
 
-  /* "toolbelt/process_trees.pyx":275
+  /* "toolbelt/process_trees.pyx":283
  *             return None
  * 
  *     def to_dict(self):             # <<<<<<<<<<<<<<
@@ -8175,7 +8526,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_8to_dict(CYTHON_UNU
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":281
+/* "toolbelt/process_trees.pyx":289
  *         return ret_val
  * 
  *     def to_json(self, filepath=None, indent=4):             # <<<<<<<<<<<<<<
@@ -8230,7 +8581,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_7Process_11to_json(PyObject 
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "to_json") < 0)) __PYX_ERR(0, 281, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "to_json") < 0)) __PYX_ERR(0, 289, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
@@ -8249,7 +8600,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_7Process_11to_json(PyObject 
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("to_json", 0, 1, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 281, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("to_json", 0, 1, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 289, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("toolbelt.process_trees.Process.to_json", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -8279,18 +8630,18 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
   PyObject *__pyx_t_11 = NULL;
   __Pyx_RefNannySetupContext("to_json", 0);
 
-  /* "toolbelt/process_trees.pyx":282
+  /* "toolbelt/process_trees.pyx":290
  * 
  *     def to_json(self, filepath=None, indent=4):
  *         if not filepath:             # <<<<<<<<<<<<<<
  *             return json.dumps(self.to_dict(), indent=indent)
  *         else:
  */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_filepath); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 282, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_filepath); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 290, __pyx_L1_error)
   __pyx_t_2 = ((!__pyx_t_1) != 0);
   if (__pyx_t_2) {
 
-    /* "toolbelt/process_trees.pyx":283
+    /* "toolbelt/process_trees.pyx":291
  *     def to_json(self, filepath=None, indent=4):
  *         if not filepath:
  *             return json.dumps(self.to_dict(), indent=indent)             # <<<<<<<<<<<<<<
@@ -8298,12 +8649,12 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
  *             with open(filepath, 'w') as f:
  */
     __Pyx_XDECREF(__pyx_r);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_json); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 283, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_json); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 291, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_dumps); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 283, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_dumps); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 291, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 283, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 291, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_6 = NULL;
     if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_5))) {
@@ -8317,18 +8668,18 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
     }
     __pyx_t_3 = (__pyx_t_6) ? __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_t_6) : __Pyx_PyObject_CallNoArg(__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 283, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 291, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = PyTuple_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 283, __pyx_L1_error)
+    __pyx_t_5 = PyTuple_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 291, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GIVEREF(__pyx_t_3);
     PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_3);
     __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 283, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 291, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_indent, __pyx_v_indent) < 0) __PYX_ERR(0, 283, __pyx_L1_error)
-    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 283, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_indent, __pyx_v_indent) < 0) __PYX_ERR(0, 291, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 291, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -8337,7 +8688,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
     __pyx_t_6 = 0;
     goto __pyx_L0;
 
-    /* "toolbelt/process_trees.pyx":282
+    /* "toolbelt/process_trees.pyx":290
  * 
  *     def to_json(self, filepath=None, indent=4):
  *         if not filepath:             # <<<<<<<<<<<<<<
@@ -8346,7 +8697,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
  */
   }
 
-  /* "toolbelt/process_trees.pyx":285
+  /* "toolbelt/process_trees.pyx":293
  *             return json.dumps(self.to_dict(), indent=indent)
  *         else:
  *             with open(filepath, 'w') as f:             # <<<<<<<<<<<<<<
@@ -8355,7 +8706,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
  */
   /*else*/ {
     /*with:*/ {
-      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 285, __pyx_L1_error)
+      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 293, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_INCREF(__pyx_v_filepath);
       __Pyx_GIVEREF(__pyx_v_filepath);
@@ -8363,12 +8714,12 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
       __Pyx_INCREF(__pyx_n_u_w);
       __Pyx_GIVEREF(__pyx_n_u_w);
       PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_n_u_w);
-      __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_open, __pyx_t_6, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 285, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_open, __pyx_t_6, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 293, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __pyx_t_7 = __Pyx_PyObject_LookupSpecial(__pyx_t_3, __pyx_n_s_exit); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 285, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_LookupSpecial(__pyx_t_3, __pyx_n_s_exit); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 293, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_5 = __Pyx_PyObject_LookupSpecial(__pyx_t_3, __pyx_n_s_enter); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 285, __pyx_L4_error)
+      __pyx_t_5 = __Pyx_PyObject_LookupSpecial(__pyx_t_3, __pyx_n_s_enter); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 293, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_4 = NULL;
       if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_5))) {
@@ -8382,7 +8733,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
       }
       __pyx_t_6 = (__pyx_t_4) ? __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_t_4) : __Pyx_PyObject_CallNoArg(__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 285, __pyx_L4_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 293, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_5 = __pyx_t_6;
@@ -8400,19 +8751,19 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
             __pyx_v_f = __pyx_t_5;
             __pyx_t_5 = 0;
 
-            /* "toolbelt/process_trees.pyx":286
+            /* "toolbelt/process_trees.pyx":294
  *         else:
  *             with open(filepath, 'w') as f:
  *                 json.dump(self.to_dict(), f, indent=indent)             # <<<<<<<<<<<<<<
  * 
  *     def get_time(self):
  */
-            __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_json); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 286, __pyx_L8_error)
+            __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_json); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 294, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_5);
-            __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_dump); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 286, __pyx_L8_error)
+            __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_dump); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 294, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_3);
             __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-            __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 286, __pyx_L8_error)
+            __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_to_dict); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 294, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_6);
             __pyx_t_4 = NULL;
             if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_6))) {
@@ -8426,10 +8777,10 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
             }
             __pyx_t_5 = (__pyx_t_4) ? __Pyx_PyObject_CallOneArg(__pyx_t_6, __pyx_t_4) : __Pyx_PyObject_CallNoArg(__pyx_t_6);
             __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 286, __pyx_L8_error)
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 294, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_5);
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-            __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 286, __pyx_L8_error)
+            __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 294, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_6);
             __Pyx_GIVEREF(__pyx_t_5);
             PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_t_5);
@@ -8437,17 +8788,17 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
             __Pyx_GIVEREF(__pyx_v_f);
             PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_v_f);
             __pyx_t_5 = 0;
-            __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 286, __pyx_L8_error)
+            __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 294, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_5);
-            if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_indent, __pyx_v_indent) < 0) __PYX_ERR(0, 286, __pyx_L8_error)
-            __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_6, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 286, __pyx_L8_error)
+            if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_indent, __pyx_v_indent) < 0) __PYX_ERR(0, 294, __pyx_L8_error)
+            __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_6, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 294, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_4);
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
             __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
             __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-            /* "toolbelt/process_trees.pyx":285
+            /* "toolbelt/process_trees.pyx":293
  *             return json.dumps(self.to_dict(), indent=indent)
  *         else:
  *             with open(filepath, 'w') as f:             # <<<<<<<<<<<<<<
@@ -8466,20 +8817,20 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
           /*except:*/ {
             __Pyx_AddTraceback("toolbelt.process_trees.Process.to_json", __pyx_clineno, __pyx_lineno, __pyx_filename);
-            if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 285, __pyx_L10_except_error)
+            if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 293, __pyx_L10_except_error)
             __Pyx_GOTREF(__pyx_t_4);
             __Pyx_GOTREF(__pyx_t_5);
             __Pyx_GOTREF(__pyx_t_6);
-            __pyx_t_3 = PyTuple_Pack(3, __pyx_t_4, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 285, __pyx_L10_except_error)
+            __pyx_t_3 = PyTuple_Pack(3, __pyx_t_4, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 293, __pyx_L10_except_error)
             __Pyx_GOTREF(__pyx_t_3);
             __pyx_t_11 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_t_3, NULL);
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-            if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 285, __pyx_L10_except_error)
+            if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 293, __pyx_L10_except_error)
             __Pyx_GOTREF(__pyx_t_11);
             __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_11);
             __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-            if (__pyx_t_2 < 0) __PYX_ERR(0, 285, __pyx_L10_except_error)
+            if (__pyx_t_2 < 0) __PYX_ERR(0, 293, __pyx_L10_except_error)
             __pyx_t_1 = ((!(__pyx_t_2 != 0)) != 0);
             if (__pyx_t_1) {
               __Pyx_GIVEREF(__pyx_t_4);
@@ -8487,7 +8838,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
               __Pyx_XGIVEREF(__pyx_t_6);
               __Pyx_ErrRestoreWithState(__pyx_t_4, __pyx_t_5, __pyx_t_6);
               __pyx_t_4 = 0; __pyx_t_5 = 0; __pyx_t_6 = 0; 
-              __PYX_ERR(0, 285, __pyx_L10_except_error)
+              __PYX_ERR(0, 293, __pyx_L10_except_error)
             }
             __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
             __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -8513,7 +8864,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
           if (__pyx_t_7) {
             __pyx_t_10 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_tuple__4, NULL);
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 285, __pyx_L1_error)
+            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 293, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_10);
             __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
           }
@@ -8529,7 +8880,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
     }
   }
 
-  /* "toolbelt/process_trees.pyx":281
+  /* "toolbelt/process_trees.pyx":289
  *         return ret_val
  * 
  *     def to_json(self, filepath=None, indent=4):             # <<<<<<<<<<<<<<
@@ -8554,7 +8905,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_10to_json(CYTHON_UN
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":288
+/* "toolbelt/process_trees.pyx":296
  *                 json.dump(self.to_dict(), f, indent=indent)
  * 
  *     def get_time(self):             # <<<<<<<<<<<<<<
@@ -8582,7 +8933,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_12get_time(CYTHON_U
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("get_time", 0);
 
-  /* "toolbelt/process_trees.pyx":289
+  /* "toolbelt/process_trees.pyx":297
  * 
  *     def get_time(self):
  *         return self.timestamp             # <<<<<<<<<<<<<<
@@ -8590,13 +8941,13 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_12get_time(CYTHON_U
  *     def set_time(self, timestamp):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_timestamp); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 289, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_timestamp); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 297, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "toolbelt/process_trees.pyx":288
+  /* "toolbelt/process_trees.pyx":296
  *                 json.dump(self.to_dict(), f, indent=indent)
  * 
  *     def get_time(self):             # <<<<<<<<<<<<<<
@@ -8615,7 +8966,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_12get_time(CYTHON_U
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":291
+/* "toolbelt/process_trees.pyx":299
  *         return self.timestamp
  * 
  *     def set_time(self, timestamp):             # <<<<<<<<<<<<<<
@@ -8655,11 +9006,11 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_7Process_15set_time(PyObject
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_timestamp)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("set_time", 1, 2, 2, 1); __PYX_ERR(0, 291, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("set_time", 1, 2, 2, 1); __PYX_ERR(0, 299, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "set_time") < 0)) __PYX_ERR(0, 291, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "set_time") < 0)) __PYX_ERR(0, 299, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
       goto __pyx_L5_argtuple_error;
@@ -8672,7 +9023,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_7Process_15set_time(PyObject
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("set_time", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 291, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("set_time", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 299, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("toolbelt.process_trees.Process.set_time", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -8693,14 +9044,14 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_14set_time(CYTHON_U
   PyObject *__pyx_t_3 = NULL;
   __Pyx_RefNannySetupContext("set_time", 0);
 
-  /* "toolbelt/process_trees.pyx":292
+  /* "toolbelt/process_trees.pyx":300
  * 
  *     def set_time(self, timestamp):
  *         self.timestamp = self.fix_date(timestamp)             # <<<<<<<<<<<<<<
  * 
  *     def get_path(self):
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fix_date); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 292, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_fix_date); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 300, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_2))) {
@@ -8714,13 +9065,13 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_14set_time(CYTHON_U
   }
   __pyx_t_1 = (__pyx_t_3) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_3, __pyx_v_timestamp) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_v_timestamp);
   __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 292, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 300, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_timestamp, __pyx_t_1) < 0) __PYX_ERR(0, 292, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_timestamp, __pyx_t_1) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "toolbelt/process_trees.pyx":291
+  /* "toolbelt/process_trees.pyx":299
  *         return self.timestamp
  * 
  *     def set_time(self, timestamp):             # <<<<<<<<<<<<<<
@@ -8743,7 +9094,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_14set_time(CYTHON_U
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":294
+/* "toolbelt/process_trees.pyx":302
  *         self.timestamp = self.fix_date(timestamp)
  * 
  *     def get_path(self):             # <<<<<<<<<<<<<<
@@ -8771,7 +9122,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_16get_path(CYTHON_U
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("get_path", 0);
 
-  /* "toolbelt/process_trees.pyx":295
+  /* "toolbelt/process_trees.pyx":303
  * 
  *     def get_path(self):
  *         return self.proc_path             # <<<<<<<<<<<<<<
@@ -8779,13 +9130,13 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_16get_path(CYTHON_U
  *     def set_path(self, path: str):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_proc_path); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 295, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_proc_path); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 303, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "toolbelt/process_trees.pyx":294
+  /* "toolbelt/process_trees.pyx":302
  *         self.timestamp = self.fix_date(timestamp)
  * 
  *     def get_path(self):             # <<<<<<<<<<<<<<
@@ -8804,7 +9155,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_16get_path(CYTHON_U
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":297
+/* "toolbelt/process_trees.pyx":305
  *         return self.proc_path
  * 
  *     def set_path(self, path: str):             # <<<<<<<<<<<<<<
@@ -8844,11 +9195,11 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_7Process_19set_path(PyObject
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_path)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("set_path", 1, 2, 2, 1); __PYX_ERR(0, 297, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("set_path", 1, 2, 2, 1); __PYX_ERR(0, 305, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "set_path") < 0)) __PYX_ERR(0, 297, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "set_path") < 0)) __PYX_ERR(0, 305, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
       goto __pyx_L5_argtuple_error;
@@ -8861,13 +9212,13 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_7Process_19set_path(PyObject
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("set_path", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 297, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("set_path", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 305, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("toolbelt.process_trees.Process.set_path", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_path), (&PyUnicode_Type), 1, "path", 1))) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_path), (&PyUnicode_Type), 1, "path", 1))) __PYX_ERR(0, 305, __pyx_L1_error)
   __pyx_r = __pyx_pf_8toolbelt_13process_trees_7Process_18set_path(__pyx_self, __pyx_v_self, __pyx_v_path);
 
   /* function exit code */
@@ -8884,16 +9235,16 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_18set_path(CYTHON_U
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("set_path", 0);
 
-  /* "toolbelt/process_trees.pyx":298
+  /* "toolbelt/process_trees.pyx":306
  * 
  *     def set_path(self, path: str):
  *         self.proc_path = path             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_proc_path, __pyx_v_path) < 0) __PYX_ERR(0, 298, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_proc_path, __pyx_v_path) < 0) __PYX_ERR(0, 306, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":297
+  /* "toolbelt/process_trees.pyx":305
  *         return self.proc_path
  * 
  *     def set_path(self, path: str):             # <<<<<<<<<<<<<<
@@ -8913,7 +9264,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_7Process_18set_path(CYTHON_U
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":301
+/* "toolbelt/process_trees.pyx":309
  * 
  * 
  * def read_process_tree(filepath=None, json_str=None, data_dict=None, host=None):             # <<<<<<<<<<<<<<
@@ -8981,7 +9332,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_1read_process_tree(PyObject 
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "read_process_tree") < 0)) __PYX_ERR(0, 301, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "read_process_tree") < 0)) __PYX_ERR(0, 309, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
@@ -9004,7 +9355,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_1read_process_tree(PyObject 
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_process_tree", 0, 0, 4, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 301, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_process_tree", 0, 0, 4, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 309, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("toolbelt.process_trees.read_process_tree", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -9045,29 +9396,29 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
   int __pyx_t_13;
   __Pyx_RefNannySetupContext("read_process_tree", 0);
 
-  /* "toolbelt/process_trees.pyx":302
+  /* "toolbelt/process_trees.pyx":310
  * 
  * def read_process_tree(filepath=None, json_str=None, data_dict=None, host=None):
  *     if filepath:             # <<<<<<<<<<<<<<
  *         data = json.load(open(filepath))
  *     elif json_str:
  */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_filepath); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 302, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_filepath); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 310, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "toolbelt/process_trees.pyx":303
+    /* "toolbelt/process_trees.pyx":311
  * def read_process_tree(filepath=None, json_str=None, data_dict=None, host=None):
  *     if filepath:
  *         data = json.load(open(filepath))             # <<<<<<<<<<<<<<
  *     elif json_str:
  *         data = json.loads(json_str)
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_json); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 303, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_json); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 311, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_load); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 303, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_load); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 311, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_open, __pyx_v_filepath); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 303, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_open, __pyx_v_filepath); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 311, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_5 = NULL;
     if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_4))) {
@@ -9082,13 +9433,13 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
     __pyx_t_2 = (__pyx_t_5) ? __Pyx_PyObject_Call2Args(__pyx_t_4, __pyx_t_5, __pyx_t_3) : __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_t_3);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 303, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 311, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_v_data = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":302
+    /* "toolbelt/process_trees.pyx":310
  * 
  * def read_process_tree(filepath=None, json_str=None, data_dict=None, host=None):
  *     if filepath:             # <<<<<<<<<<<<<<
@@ -9098,26 +9449,26 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
     goto __pyx_L3;
   }
 
-  /* "toolbelt/process_trees.pyx":304
+  /* "toolbelt/process_trees.pyx":312
  *     if filepath:
  *         data = json.load(open(filepath))
  *     elif json_str:             # <<<<<<<<<<<<<<
  *         data = json.loads(json_str)
  *     elif data_dict:
  */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_json_str); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 304, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_json_str); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 312, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "toolbelt/process_trees.pyx":305
+    /* "toolbelt/process_trees.pyx":313
  *         data = json.load(open(filepath))
  *     elif json_str:
  *         data = json.loads(json_str)             # <<<<<<<<<<<<<<
  *     elif data_dict:
  *         if isinstance(data_dict, dict):
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_json); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 305, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_json); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 313, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_loads); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 305, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_loads); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 313, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_4 = NULL;
@@ -9132,13 +9483,13 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
     }
     __pyx_t_2 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_4, __pyx_v_json_str) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_json_str);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 305, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 313, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_data = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":304
+    /* "toolbelt/process_trees.pyx":312
  *     if filepath:
  *         data = json.load(open(filepath))
  *     elif json_str:             # <<<<<<<<<<<<<<
@@ -9148,17 +9499,17 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
     goto __pyx_L3;
   }
 
-  /* "toolbelt/process_trees.pyx":306
+  /* "toolbelt/process_trees.pyx":314
  *     elif json_str:
  *         data = json.loads(json_str)
  *     elif data_dict:             # <<<<<<<<<<<<<<
  *         if isinstance(data_dict, dict):
  *             data = data_dict
  */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_data_dict); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 306, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_data_dict); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 314, __pyx_L1_error)
   if (likely(__pyx_t_1)) {
 
-    /* "toolbelt/process_trees.pyx":307
+    /* "toolbelt/process_trees.pyx":315
  *         data = json.loads(json_str)
  *     elif data_dict:
  *         if isinstance(data_dict, dict):             # <<<<<<<<<<<<<<
@@ -9169,7 +9520,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
     __pyx_t_6 = (__pyx_t_1 != 0);
     if (__pyx_t_6) {
 
-      /* "toolbelt/process_trees.pyx":308
+      /* "toolbelt/process_trees.pyx":316
  *     elif data_dict:
  *         if isinstance(data_dict, dict):
  *             data = data_dict             # <<<<<<<<<<<<<<
@@ -9179,7 +9530,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
       __Pyx_INCREF(__pyx_v_data_dict);
       __pyx_v_data = __pyx_v_data_dict;
 
-      /* "toolbelt/process_trees.pyx":307
+      /* "toolbelt/process_trees.pyx":315
  *         data = json.loads(json_str)
  *     elif data_dict:
  *         if isinstance(data_dict, dict):             # <<<<<<<<<<<<<<
@@ -9188,7 +9539,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
  */
     }
 
-    /* "toolbelt/process_trees.pyx":306
+    /* "toolbelt/process_trees.pyx":314
  *     elif json_str:
  *         data = json.loads(json_str)
  *     elif data_dict:             # <<<<<<<<<<<<<<
@@ -9198,7 +9549,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
     goto __pyx_L3;
   }
 
-  /* "toolbelt/process_trees.pyx":310
+  /* "toolbelt/process_trees.pyx":318
  *             data = data_dict
  *     else:
  *         raise ValueError('No valid data provided.')             # <<<<<<<<<<<<<<
@@ -9206,49 +9557,49 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
  *     new_tree = ProcessTree(tree_id=data['tree_id'], host=host)
  */
   /*else*/ {
-    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_tuple__8, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 310, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_tuple__8, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 318, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 310, __pyx_L1_error)
+    __PYX_ERR(0, 318, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "toolbelt/process_trees.pyx":312
+  /* "toolbelt/process_trees.pyx":320
  *         raise ValueError('No valid data provided.')
  * 
  *     new_tree = ProcessTree(tree_id=data['tree_id'], host=host)             # <<<<<<<<<<<<<<
  *     num_layers = len(data['nodes'].keys())
  *     for layer in range(num_layers):
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_ProcessTree); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 312, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_ProcessTree); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 320, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 312, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 320, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (unlikely(!__pyx_v_data)) { __Pyx_RaiseUnboundLocalError("data"); __PYX_ERR(0, 312, __pyx_L1_error) }
-  __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_tree_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 312, __pyx_L1_error)
+  if (unlikely(!__pyx_v_data)) { __Pyx_RaiseUnboundLocalError("data"); __PYX_ERR(0, 320, __pyx_L1_error) }
+  __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_tree_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 320, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_tree_id, __pyx_t_4) < 0) __PYX_ERR(0, 312, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_tree_id, __pyx_t_4) < 0) __PYX_ERR(0, 320, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_host, __pyx_v_host) < 0) __PYX_ERR(0, 312, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 312, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_host, __pyx_v_host) < 0) __PYX_ERR(0, 320, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 320, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_new_tree = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "toolbelt/process_trees.pyx":313
+  /* "toolbelt/process_trees.pyx":321
  * 
  *     new_tree = ProcessTree(tree_id=data['tree_id'], host=host)
  *     num_layers = len(data['nodes'].keys())             # <<<<<<<<<<<<<<
  *     for layer in range(num_layers):
  *         layer_data = data['nodes'][str(layer)]
  */
-  if (unlikely(!__pyx_v_data)) { __Pyx_RaiseUnboundLocalError("data"); __PYX_ERR(0, 313, __pyx_L1_error) }
-  __pyx_t_3 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_nodes); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 313, __pyx_L1_error)
+  if (unlikely(!__pyx_v_data)) { __Pyx_RaiseUnboundLocalError("data"); __PYX_ERR(0, 321, __pyx_L1_error) }
+  __pyx_t_3 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_nodes); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 321, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_keys); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 313, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_keys); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 321, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -9263,14 +9614,14 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
   }
   __pyx_t_4 = (__pyx_t_3) ? __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_t_3) : __Pyx_PyObject_CallNoArg(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 313, __pyx_L1_error)
+  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 321, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_7 = PyObject_Length(__pyx_t_4); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 313, __pyx_L1_error)
+  __pyx_t_7 = PyObject_Length(__pyx_t_4); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 321, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_v_num_layers = __pyx_t_7;
 
-  /* "toolbelt/process_trees.pyx":314
+  /* "toolbelt/process_trees.pyx":322
  *     new_tree = ProcessTree(tree_id=data['tree_id'], host=host)
  *     num_layers = len(data['nodes'].keys())
  *     for layer in range(num_layers):             # <<<<<<<<<<<<<<
@@ -9282,29 +9633,29 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
   for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
     __pyx_v_layer = __pyx_t_9;
 
-    /* "toolbelt/process_trees.pyx":315
+    /* "toolbelt/process_trees.pyx":323
  *     num_layers = len(data['nodes'].keys())
  *     for layer in range(num_layers):
  *         layer_data = data['nodes'][str(layer)]             # <<<<<<<<<<<<<<
  *         for _, node in layer_data.items():
  *             parent_id = path = time = None
  */
-    if (unlikely(!__pyx_v_data)) { __Pyx_RaiseUnboundLocalError("data"); __PYX_ERR(0, 315, __pyx_L1_error) }
-    __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_nodes); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 315, __pyx_L1_error)
+    if (unlikely(!__pyx_v_data)) { __Pyx_RaiseUnboundLocalError("data"); __PYX_ERR(0, 323, __pyx_L1_error) }
+    __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_nodes); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 323, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_2 = PyInt_FromSsize_t(__pyx_v_layer); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 315, __pyx_L1_error)
+    __pyx_t_2 = PyInt_FromSsize_t(__pyx_v_layer); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 323, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyUnicode_Type)), __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 315, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyUnicode_Type)), __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 323, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 315, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 323, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_XDECREF_SET(__pyx_v_layer_data, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":316
+    /* "toolbelt/process_trees.pyx":324
  *     for layer in range(num_layers):
  *         layer_data = data['nodes'][str(layer)]
  *         for _, node in layer_data.items():             # <<<<<<<<<<<<<<
@@ -9314,9 +9665,9 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
     __pyx_t_10 = 0;
     if (unlikely(__pyx_v_layer_data == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-      __PYX_ERR(0, 316, __pyx_L1_error)
+      __PYX_ERR(0, 324, __pyx_L1_error)
     }
-    __pyx_t_3 = __Pyx_dict_iterator(__pyx_v_layer_data, 0, __pyx_n_s_items, (&__pyx_t_11), (&__pyx_t_12)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 316, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_dict_iterator(__pyx_v_layer_data, 0, __pyx_n_s_items, (&__pyx_t_11), (&__pyx_t_12)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 324, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_XDECREF(__pyx_t_2);
     __pyx_t_2 = __pyx_t_3;
@@ -9324,7 +9675,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
     while (1) {
       __pyx_t_13 = __Pyx_dict_iter_next(__pyx_t_2, __pyx_t_11, &__pyx_t_10, &__pyx_t_3, &__pyx_t_4, NULL, __pyx_t_12);
       if (unlikely(__pyx_t_13 == 0)) break;
-      if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 316, __pyx_L1_error)
+      if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 324, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_XDECREF_SET(__pyx_v__, __pyx_t_3);
@@ -9332,7 +9683,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
       __Pyx_XDECREF_SET(__pyx_v_node, __pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "toolbelt/process_trees.pyx":317
+      /* "toolbelt/process_trees.pyx":325
  *         layer_data = data['nodes'][str(layer)]
  *         for _, node in layer_data.items():
  *             parent_id = path = time = None             # <<<<<<<<<<<<<<
@@ -9346,14 +9697,14 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
       __Pyx_INCREF(Py_None);
       __Pyx_XDECREF_SET(__pyx_v_time, Py_None);
 
-      /* "toolbelt/process_trees.pyx":318
+      /* "toolbelt/process_trees.pyx":326
  *         for _, node in layer_data.items():
  *             parent_id = path = time = None
  *             if 'parent' in node.keys():             # <<<<<<<<<<<<<<
  *                 parent_id = node['parent']
  *             if 'proc_path' in node.keys():
  */
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_node, __pyx_n_s_keys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 318, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_node, __pyx_n_s_keys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 326, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_5 = NULL;
       if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_3))) {
@@ -9367,27 +9718,27 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
       }
       __pyx_t_4 = (__pyx_t_5) ? __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_5) : __Pyx_PyObject_CallNoArg(__pyx_t_3);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 318, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 326, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_parent, __pyx_t_4, Py_EQ)); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 318, __pyx_L1_error)
+      __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_parent, __pyx_t_4, Py_EQ)); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 326, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_t_1 = (__pyx_t_6 != 0);
       if (__pyx_t_1) {
 
-        /* "toolbelt/process_trees.pyx":319
+        /* "toolbelt/process_trees.pyx":327
  *             parent_id = path = time = None
  *             if 'parent' in node.keys():
  *                 parent_id = node['parent']             # <<<<<<<<<<<<<<
  *             if 'proc_path' in node.keys():
  *                 path = node['proc_path']
  */
-        __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_node, __pyx_n_u_parent); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 319, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_node, __pyx_n_u_parent); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 327, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF_SET(__pyx_v_parent_id, __pyx_t_4);
         __pyx_t_4 = 0;
 
-        /* "toolbelt/process_trees.pyx":318
+        /* "toolbelt/process_trees.pyx":326
  *         for _, node in layer_data.items():
  *             parent_id = path = time = None
  *             if 'parent' in node.keys():             # <<<<<<<<<<<<<<
@@ -9396,14 +9747,14 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
  */
       }
 
-      /* "toolbelt/process_trees.pyx":320
+      /* "toolbelt/process_trees.pyx":328
  *             if 'parent' in node.keys():
  *                 parent_id = node['parent']
  *             if 'proc_path' in node.keys():             # <<<<<<<<<<<<<<
  *                 path = node['proc_path']
  *             if 'timestamp' in node.keys():
  */
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_node, __pyx_n_s_keys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 320, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_node, __pyx_n_s_keys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 328, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_5 = NULL;
       if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_3))) {
@@ -9417,27 +9768,27 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
       }
       __pyx_t_4 = (__pyx_t_5) ? __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_5) : __Pyx_PyObject_CallNoArg(__pyx_t_3);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 320, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 328, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_1 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_proc_path, __pyx_t_4, Py_EQ)); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 320, __pyx_L1_error)
+      __pyx_t_1 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_proc_path, __pyx_t_4, Py_EQ)); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 328, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_t_6 = (__pyx_t_1 != 0);
       if (__pyx_t_6) {
 
-        /* "toolbelt/process_trees.pyx":321
+        /* "toolbelt/process_trees.pyx":329
  *                 parent_id = node['parent']
  *             if 'proc_path' in node.keys():
  *                 path = node['proc_path']             # <<<<<<<<<<<<<<
  *             if 'timestamp' in node.keys():
  *                 time = node['timestamp']
  */
-        __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_node, __pyx_n_u_proc_path); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 321, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_node, __pyx_n_u_proc_path); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 329, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF_SET(__pyx_v_path, __pyx_t_4);
         __pyx_t_4 = 0;
 
-        /* "toolbelt/process_trees.pyx":320
+        /* "toolbelt/process_trees.pyx":328
  *             if 'parent' in node.keys():
  *                 parent_id = node['parent']
  *             if 'proc_path' in node.keys():             # <<<<<<<<<<<<<<
@@ -9446,14 +9797,14 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
  */
       }
 
-      /* "toolbelt/process_trees.pyx":322
+      /* "toolbelt/process_trees.pyx":330
  *             if 'proc_path' in node.keys():
  *                 path = node['proc_path']
  *             if 'timestamp' in node.keys():             # <<<<<<<<<<<<<<
  *                 time = node['timestamp']
  *             new_tree.append_proc(guid=node['node_id'],
  */
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_node, __pyx_n_s_keys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 322, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_node, __pyx_n_s_keys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 330, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_5 = NULL;
       if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_3))) {
@@ -9467,27 +9818,27 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
       }
       __pyx_t_4 = (__pyx_t_5) ? __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_5) : __Pyx_PyObject_CallNoArg(__pyx_t_3);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 322, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 330, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_timestamp, __pyx_t_4, Py_EQ)); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 322, __pyx_L1_error)
+      __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_timestamp, __pyx_t_4, Py_EQ)); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 330, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_t_1 = (__pyx_t_6 != 0);
       if (__pyx_t_1) {
 
-        /* "toolbelt/process_trees.pyx":323
+        /* "toolbelt/process_trees.pyx":331
  *                 path = node['proc_path']
  *             if 'timestamp' in node.keys():
  *                 time = node['timestamp']             # <<<<<<<<<<<<<<
  *             new_tree.append_proc(guid=node['node_id'],
  *                                  proc_name=node['name'],
  */
-        __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_node, __pyx_n_u_timestamp); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 323, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_node, __pyx_n_u_timestamp); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 331, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF_SET(__pyx_v_time, __pyx_t_4);
         __pyx_t_4 = 0;
 
-        /* "toolbelt/process_trees.pyx":322
+        /* "toolbelt/process_trees.pyx":330
  *             if 'proc_path' in node.keys():
  *                 path = node['proc_path']
  *             if 'timestamp' in node.keys():             # <<<<<<<<<<<<<<
@@ -9496,69 +9847,69 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
  */
       }
 
-      /* "toolbelt/process_trees.pyx":324
+      /* "toolbelt/process_trees.pyx":332
  *             if 'timestamp' in node.keys():
  *                 time = node['timestamp']
  *             new_tree.append_proc(guid=node['node_id'],             # <<<<<<<<<<<<<<
  *                                  proc_name=node['name'],
  *                                  parent_guid=parent_id,
  */
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_new_tree, __pyx_n_s_append_proc); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 324, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_new_tree, __pyx_n_s_append_proc); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 332, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 324, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 332, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_v_node, __pyx_n_u_node_id); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 324, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_v_node, __pyx_n_u_node_id); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 332, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_guid, __pyx_t_5) < 0) __PYX_ERR(0, 324, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_guid, __pyx_t_5) < 0) __PYX_ERR(0, 332, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "toolbelt/process_trees.pyx":325
+      /* "toolbelt/process_trees.pyx":333
  *                 time = node['timestamp']
  *             new_tree.append_proc(guid=node['node_id'],
  *                                  proc_name=node['name'],             # <<<<<<<<<<<<<<
  *                                  parent_guid=parent_id,
  *                                  timestamp=time,
  */
-      __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_v_node, __pyx_n_u_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 325, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_v_node, __pyx_n_u_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 333, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_proc_name, __pyx_t_5) < 0) __PYX_ERR(0, 324, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_proc_name, __pyx_t_5) < 0) __PYX_ERR(0, 332, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "toolbelt/process_trees.pyx":326
+      /* "toolbelt/process_trees.pyx":334
  *             new_tree.append_proc(guid=node['node_id'],
  *                                  proc_name=node['name'],
  *                                  parent_guid=parent_id,             # <<<<<<<<<<<<<<
  *                                  timestamp=time,
  *                                  proc_path=path)
  */
-      if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_parent_guid, __pyx_v_parent_id) < 0) __PYX_ERR(0, 324, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_parent_guid, __pyx_v_parent_id) < 0) __PYX_ERR(0, 332, __pyx_L1_error)
 
-      /* "toolbelt/process_trees.pyx":327
+      /* "toolbelt/process_trees.pyx":335
  *                                  proc_name=node['name'],
  *                                  parent_guid=parent_id,
  *                                  timestamp=time,             # <<<<<<<<<<<<<<
  *                                  proc_path=path)
  *     return new_tree
  */
-      if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_timestamp, __pyx_v_time) < 0) __PYX_ERR(0, 324, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_timestamp, __pyx_v_time) < 0) __PYX_ERR(0, 332, __pyx_L1_error)
 
-      /* "toolbelt/process_trees.pyx":328
+      /* "toolbelt/process_trees.pyx":336
  *                                  parent_guid=parent_id,
  *                                  timestamp=time,
  *                                  proc_path=path)             # <<<<<<<<<<<<<<
  *     return new_tree
  * 
  */
-      if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_proc_path, __pyx_v_path) < 0) __PYX_ERR(0, 324, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_proc_path, __pyx_v_path) < 0) __PYX_ERR(0, 332, __pyx_L1_error)
 
-      /* "toolbelt/process_trees.pyx":324
+      /* "toolbelt/process_trees.pyx":332
  *             if 'timestamp' in node.keys():
  *                 time = node['timestamp']
  *             new_tree.append_proc(guid=node['node_id'],             # <<<<<<<<<<<<<<
  *                                  proc_name=node['name'],
  *                                  parent_guid=parent_id,
  */
-      __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 324, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 332, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -9567,7 +9918,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
 
-  /* "toolbelt/process_trees.pyx":329
+  /* "toolbelt/process_trees.pyx":337
  *                                  timestamp=time,
  *                                  proc_path=path)
  *     return new_tree             # <<<<<<<<<<<<<<
@@ -9579,7 +9930,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
   __pyx_r = __pyx_v_new_tree;
   goto __pyx_L0;
 
-  /* "toolbelt/process_trees.pyx":301
+  /* "toolbelt/process_trees.pyx":309
  * 
  * 
  * def read_process_tree(filepath=None, json_str=None, data_dict=None, host=None):             # <<<<<<<<<<<<<<
@@ -9609,7 +9960,7 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_read_process_tree(CYTHON_UNU
   return __pyx_r;
 }
 
-/* "toolbelt/process_trees.pyx":332
+/* "toolbelt/process_trees.pyx":340
  * 
  * 
  * def read_host(filepath=None, json_str=None):             # <<<<<<<<<<<<<<
@@ -9657,7 +10008,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_3read_host(PyObject *__pyx_s
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "read_host") < 0)) __PYX_ERR(0, 332, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "read_host") < 0)) __PYX_ERR(0, 340, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
@@ -9674,7 +10025,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_3read_host(PyObject *__pyx_s
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_host", 0, 0, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 332, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_host", 0, 0, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 340, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("toolbelt.process_trees.read_host", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -9689,6 +10040,7 @@ static PyObject *__pyx_pw_8toolbelt_13process_trees_3read_host(PyObject *__pyx_s
 
 static PyObject *__pyx_pf_8toolbelt_13process_trees_2read_host(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_filepath, PyObject *__pyx_v_json_str) {
   PyObject *__pyx_v_data = NULL;
+  int __pyx_v_make_unique;
   PyObject *__pyx_v_new_host = NULL;
   CYTHON_UNUSED PyObject *__pyx_v__ = NULL;
   PyObject *__pyx_v_tree = NULL;
@@ -9707,29 +10059,29 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_2read_host(CYTHON_UNUSED PyO
   int __pyx_t_11;
   __Pyx_RefNannySetupContext("read_host", 0);
 
-  /* "toolbelt/process_trees.pyx":333
+  /* "toolbelt/process_trees.pyx":341
  * 
  * def read_host(filepath=None, json_str=None):
  *     if filepath:             # <<<<<<<<<<<<<<
  *         data = json.load(open(filepath))
  *     elif json_str:
  */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_filepath); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 333, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_filepath); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 341, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "toolbelt/process_trees.pyx":334
+    /* "toolbelt/process_trees.pyx":342
  * def read_host(filepath=None, json_str=None):
  *     if filepath:
  *         data = json.load(open(filepath))             # <<<<<<<<<<<<<<
  *     elif json_str:
  *         data = json.loads(json_str)
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_json); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 334, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_json); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 342, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_load); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 334, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_load); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 342, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_open, __pyx_v_filepath); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 334, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_open, __pyx_v_filepath); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 342, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_5 = NULL;
     if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_4))) {
@@ -9744,13 +10096,13 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_2read_host(CYTHON_UNUSED PyO
     __pyx_t_2 = (__pyx_t_5) ? __Pyx_PyObject_Call2Args(__pyx_t_4, __pyx_t_5, __pyx_t_3) : __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_t_3);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 334, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 342, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_v_data = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":333
+    /* "toolbelt/process_trees.pyx":341
  * 
  * def read_host(filepath=None, json_str=None):
  *     if filepath:             # <<<<<<<<<<<<<<
@@ -9760,26 +10112,26 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_2read_host(CYTHON_UNUSED PyO
     goto __pyx_L3;
   }
 
-  /* "toolbelt/process_trees.pyx":335
+  /* "toolbelt/process_trees.pyx":343
  *     if filepath:
  *         data = json.load(open(filepath))
  *     elif json_str:             # <<<<<<<<<<<<<<
  *         data = json.loads(json_str)
  *     else:
  */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_json_str); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 335, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_json_str); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 343, __pyx_L1_error)
   if (likely(__pyx_t_1)) {
 
-    /* "toolbelt/process_trees.pyx":336
+    /* "toolbelt/process_trees.pyx":344
  *         data = json.load(open(filepath))
  *     elif json_str:
  *         data = json.loads(json_str)             # <<<<<<<<<<<<<<
  *     else:
  *         raise ValueError('No valid data provided.')
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_json); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 336, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_json); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 344, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_loads); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 336, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_loads); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 344, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_4 = NULL;
@@ -9794,13 +10146,13 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_2read_host(CYTHON_UNUSED PyO
     }
     __pyx_t_2 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_4, __pyx_v_json_str) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_json_str);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 336, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 344, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_data = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "toolbelt/process_trees.pyx":335
+    /* "toolbelt/process_trees.pyx":343
  *     if filepath:
  *         data = json.load(open(filepath))
  *     elif json_str:             # <<<<<<<<<<<<<<
@@ -9810,30 +10162,30 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_2read_host(CYTHON_UNUSED PyO
     goto __pyx_L3;
   }
 
-  /* "toolbelt/process_trees.pyx":338
+  /* "toolbelt/process_trees.pyx":346
  *         data = json.loads(json_str)
  *     else:
  *         raise ValueError('No valid data provided.')             # <<<<<<<<<<<<<<
- *     if 'unique_only' in data.keys() and data['unique_only']:
- *         new_host = Host(name=data['host_id'],
+ *     if 'unique' in data.keys() and data['unique']:
+ *         make_unique = True
  */
   /*else*/ {
-    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_tuple__8, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 338, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_tuple__8, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 346, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 338, __pyx_L1_error)
+    __PYX_ERR(0, 346, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "toolbelt/process_trees.pyx":339
+  /* "toolbelt/process_trees.pyx":347
  *     else:
  *         raise ValueError('No valid data provided.')
- *     if 'unique_only' in data.keys() and data['unique_only']:             # <<<<<<<<<<<<<<
- *         new_host = Host(name=data['host_id'],
- *                         operating_system=data['op_sys'],
+ *     if 'unique' in data.keys() and data['unique']:             # <<<<<<<<<<<<<<
+ *         make_unique = True
+ *     else:
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_data, __pyx_n_s_keys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 339, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_data, __pyx_n_s_keys); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 347, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = NULL;
   if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_3))) {
@@ -9847,10 +10199,10 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_2read_host(CYTHON_UNUSED PyO
   }
   __pyx_t_2 = (__pyx_t_4) ? __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_4) : __Pyx_PyObject_CallNoArg(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 339, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 347, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_unique_only, __pyx_t_2, Py_EQ)); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 339, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_n_u_unique_2, __pyx_t_2, Py_EQ)); if (unlikely(__pyx_t_6 < 0)) __PYX_ERR(0, 347, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_7 = (__pyx_t_6 != 0);
   if (__pyx_t_7) {
@@ -9858,242 +10210,216 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_2read_host(CYTHON_UNUSED PyO
     __pyx_t_1 = __pyx_t_7;
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_unique_only); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 339, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_unique_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 347, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_7 < 0)) __PYX_ERR(0, 339, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_7 < 0)) __PYX_ERR(0, 347, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_1 = __pyx_t_7;
   __pyx_L5_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "toolbelt/process_trees.pyx":340
+    /* "toolbelt/process_trees.pyx":348
  *         raise ValueError('No valid data provided.')
- *     if 'unique_only' in data.keys() and data['unique_only']:
- *         new_host = Host(name=data['host_id'],             # <<<<<<<<<<<<<<
- *                         operating_system=data['op_sys'],
- *                         ip=data['ip'],
- */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_Host); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 340, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 340, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_host_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 340, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_name, __pyx_t_4) < 0) __PYX_ERR(0, 340, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-    /* "toolbelt/process_trees.pyx":341
- *     if 'unique_only' in data.keys() and data['unique_only']:
- *         new_host = Host(name=data['host_id'],
- *                         operating_system=data['op_sys'],             # <<<<<<<<<<<<<<
- *                         ip=data['ip'],
- *                         env=data['env'],
- */
-    __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_op_sys); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 341, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_operating_system, __pyx_t_4) < 0) __PYX_ERR(0, 340, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-    /* "toolbelt/process_trees.pyx":342
- *         new_host = Host(name=data['host_id'],
- *                         operating_system=data['op_sys'],
- *                         ip=data['ip'],             # <<<<<<<<<<<<<<
- *                         env=data['env'],
- *                         unique_only=True)
- */
-    __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_ip); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 342, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_ip, __pyx_t_4) < 0) __PYX_ERR(0, 340, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-    /* "toolbelt/process_trees.pyx":343
- *                         operating_system=data['op_sys'],
- *                         ip=data['ip'],
- *                         env=data['env'],             # <<<<<<<<<<<<<<
- *                         unique_only=True)
- *         new_host.unique_tree_counts = data['unique_tree_counts']
- */
-    __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_env); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 343, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_env, __pyx_t_4) < 0) __PYX_ERR(0, 340, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-    /* "toolbelt/process_trees.pyx":344
- *                         ip=data['ip'],
- *                         env=data['env'],
- *                         unique_only=True)             # <<<<<<<<<<<<<<
- *         new_host.unique_tree_counts = data['unique_tree_counts']
+ *     if 'unique' in data.keys() and data['unique']:
+ *         make_unique = True             # <<<<<<<<<<<<<<
  *     else:
+ *         make_unique = False
  */
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_unique_only, Py_True) < 0) __PYX_ERR(0, 340, __pyx_L1_error)
+    __pyx_v_make_unique = 1;
 
-    /* "toolbelt/process_trees.pyx":340
- *         raise ValueError('No valid data provided.')
- *     if 'unique_only' in data.keys() and data['unique_only']:
- *         new_host = Host(name=data['host_id'],             # <<<<<<<<<<<<<<
- *                         operating_system=data['op_sys'],
- *                         ip=data['ip'],
- */
-    __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 340, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_v_new_host = __pyx_t_4;
-    __pyx_t_4 = 0;
-
-    /* "toolbelt/process_trees.pyx":345
- *                         env=data['env'],
- *                         unique_only=True)
- *         new_host.unique_tree_counts = data['unique_tree_counts']             # <<<<<<<<<<<<<<
- *     else:
- *         new_host = Host(name=data['host_id'],
- */
-    __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_unique_tree_counts); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 345, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_PyObject_SetAttrStr(__pyx_v_new_host, __pyx_n_s_unique_tree_counts, __pyx_t_4) < 0) __PYX_ERR(0, 345, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-    /* "toolbelt/process_trees.pyx":339
+    /* "toolbelt/process_trees.pyx":347
  *     else:
  *         raise ValueError('No valid data provided.')
- *     if 'unique_only' in data.keys() and data['unique_only']:             # <<<<<<<<<<<<<<
- *         new_host = Host(name=data['host_id'],
- *                         operating_system=data['op_sys'],
+ *     if 'unique' in data.keys() and data['unique']:             # <<<<<<<<<<<<<<
+ *         make_unique = True
+ *     else:
  */
     goto __pyx_L4;
   }
 
-  /* "toolbelt/process_trees.pyx":347
- *         new_host.unique_tree_counts = data['unique_tree_counts']
+  /* "toolbelt/process_trees.pyx":350
+ *         make_unique = True
  *     else:
- *         new_host = Host(name=data['host_id'],             # <<<<<<<<<<<<<<
- *                         operating_system=data['op_sys'],
- *                         ip=data['ip'],
+ *         make_unique = False             # <<<<<<<<<<<<<<
+ *     new_host = Host(name=data['host_id'],
+ *                     operating_system=data['op_sys'],
  */
   /*else*/ {
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_Host); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 347, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 347, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_host_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 347, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_name, __pyx_t_2) < 0) __PYX_ERR(0, 347, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-    /* "toolbelt/process_trees.pyx":348
- *     else:
- *         new_host = Host(name=data['host_id'],
- *                         operating_system=data['op_sys'],             # <<<<<<<<<<<<<<
- *                         ip=data['ip'],
- *                         env=data['env'])
- */
-    __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_op_sys); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 348, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_operating_system, __pyx_t_2) < 0) __PYX_ERR(0, 347, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-    /* "toolbelt/process_trees.pyx":349
- *         new_host = Host(name=data['host_id'],
- *                         operating_system=data['op_sys'],
- *                         ip=data['ip'],             # <<<<<<<<<<<<<<
- *                         env=data['env'])
- *     for _, tree in data['trees'].items():
- */
-    __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_ip); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 349, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_ip, __pyx_t_2) < 0) __PYX_ERR(0, 347, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-    /* "toolbelt/process_trees.pyx":350
- *                         operating_system=data['op_sys'],
- *                         ip=data['ip'],
- *                         env=data['env'])             # <<<<<<<<<<<<<<
- *     for _, tree in data['trees'].items():
- *         read_process_tree(data_dict=tree, host=new_host)
- */
-    __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_env); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 350, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_env, __pyx_t_2) < 0) __PYX_ERR(0, 347, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-    /* "toolbelt/process_trees.pyx":347
- *         new_host.unique_tree_counts = data['unique_tree_counts']
- *     else:
- *         new_host = Host(name=data['host_id'],             # <<<<<<<<<<<<<<
- *                         operating_system=data['op_sys'],
- *                         ip=data['ip'],
- */
-    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 347, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_v_new_host = __pyx_t_2;
-    __pyx_t_2 = 0;
+    __pyx_v_make_unique = 0;
   }
   __pyx_L4:;
 
   /* "toolbelt/process_trees.pyx":351
- *                         ip=data['ip'],
- *                         env=data['env'])
+ *     else:
+ *         make_unique = False
+ *     new_host = Host(name=data['host_id'],             # <<<<<<<<<<<<<<
+ *                     operating_system=data['op_sys'],
+ *                     ip=data['ip'],
+ */
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_Host); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 351, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 351, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_host_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 351, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_name, __pyx_t_4) < 0) __PYX_ERR(0, 351, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "toolbelt/process_trees.pyx":352
+ *         make_unique = False
+ *     new_host = Host(name=data['host_id'],
+ *                     operating_system=data['op_sys'],             # <<<<<<<<<<<<<<
+ *                     ip=data['ip'],
+ *                     env=data['env'])
+ */
+  __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_op_sys); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 352, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_operating_system, __pyx_t_4) < 0) __PYX_ERR(0, 351, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "toolbelt/process_trees.pyx":353
+ *     new_host = Host(name=data['host_id'],
+ *                     operating_system=data['op_sys'],
+ *                     ip=data['ip'],             # <<<<<<<<<<<<<<
+ *                     env=data['env'])
+ *     for _, tree in data['trees'].items():
+ */
+  __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_ip); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 353, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_ip, __pyx_t_4) < 0) __PYX_ERR(0, 351, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "toolbelt/process_trees.pyx":354
+ *                     operating_system=data['op_sys'],
+ *                     ip=data['ip'],
+ *                     env=data['env'])             # <<<<<<<<<<<<<<
+ *     for _, tree in data['trees'].items():
+ *         read_process_tree(data_dict=tree, host=new_host)
+ */
+  __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_env); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 354, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_env, __pyx_t_4) < 0) __PYX_ERR(0, 351, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "toolbelt/process_trees.pyx":351
+ *     else:
+ *         make_unique = False
+ *     new_host = Host(name=data['host_id'],             # <<<<<<<<<<<<<<
+ *                     operating_system=data['op_sys'],
+ *                     ip=data['ip'],
+ */
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 351, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_v_new_host = __pyx_t_4;
+  __pyx_t_4 = 0;
+
+  /* "toolbelt/process_trees.pyx":355
+ *                     ip=data['ip'],
+ *                     env=data['env'])
  *     for _, tree in data['trees'].items():             # <<<<<<<<<<<<<<
  *         read_process_tree(data_dict=tree, host=new_host)
- *     return new_host
+ *     if make_unique:
  */
   __pyx_t_8 = 0;
-  __pyx_t_3 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_trees); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 351, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_trees); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 355, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (unlikely(__pyx_t_3 == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 351, __pyx_L1_error)
+    __PYX_ERR(0, 355, __pyx_L1_error)
   }
-  __pyx_t_4 = __Pyx_dict_iterator(__pyx_t_3, 0, __pyx_n_s_items, (&__pyx_t_9), (&__pyx_t_10)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 351, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_2 = __Pyx_dict_iterator(__pyx_t_3, 0, __pyx_n_s_items, (&__pyx_t_9), (&__pyx_t_10)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 355, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __Pyx_XDECREF(__pyx_t_2);
-  __pyx_t_2 = __pyx_t_4;
-  __pyx_t_4 = 0;
+  __Pyx_XDECREF(__pyx_t_4);
+  __pyx_t_4 = __pyx_t_2;
+  __pyx_t_2 = 0;
   while (1) {
-    __pyx_t_11 = __Pyx_dict_iter_next(__pyx_t_2, __pyx_t_9, &__pyx_t_8, &__pyx_t_4, &__pyx_t_3, NULL, __pyx_t_10);
+    __pyx_t_11 = __Pyx_dict_iter_next(__pyx_t_4, __pyx_t_9, &__pyx_t_8, &__pyx_t_2, &__pyx_t_3, NULL, __pyx_t_10);
     if (unlikely(__pyx_t_11 == 0)) break;
-    if (unlikely(__pyx_t_11 == -1)) __PYX_ERR(0, 351, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
+    if (unlikely(__pyx_t_11 == -1)) __PYX_ERR(0, 355, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
     __Pyx_GOTREF(__pyx_t_3);
-    __Pyx_XDECREF_SET(__pyx_v__, __pyx_t_4);
-    __pyx_t_4 = 0;
+    __Pyx_XDECREF_SET(__pyx_v__, __pyx_t_2);
+    __pyx_t_2 = 0;
     __Pyx_XDECREF_SET(__pyx_v_tree, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "toolbelt/process_trees.pyx":352
- *                         env=data['env'])
+    /* "toolbelt/process_trees.pyx":356
+ *                     env=data['env'])
  *     for _, tree in data['trees'].items():
  *         read_process_tree(data_dict=tree, host=new_host)             # <<<<<<<<<<<<<<
- *     return new_host
+ *     if make_unique:
+ *         new_host.unique_only = True
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_read_process_tree); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 352, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_read_process_tree); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 356, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 352, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_data_dict, __pyx_v_tree) < 0) __PYX_ERR(0, 352, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_host, __pyx_v_new_host) < 0) __PYX_ERR(0, 352, __pyx_L1_error)
-    __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_empty_tuple, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 352, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 356, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_data_dict, __pyx_v_tree) < 0) __PYX_ERR(0, 356, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_host, __pyx_v_new_host) < 0) __PYX_ERR(0, 356, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_empty_tuple, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 356, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "toolbelt/process_trees.pyx":353
+  /* "toolbelt/process_trees.pyx":357
  *     for _, tree in data['trees'].items():
  *         read_process_tree(data_dict=tree, host=new_host)
+ *     if make_unique:             # <<<<<<<<<<<<<<
+ *         new_host.unique_only = True
+ *         new_host.unique_tree_counts = data['unique_tree_counts']
+ */
+  __pyx_t_1 = (__pyx_v_make_unique != 0);
+  if (__pyx_t_1) {
+
+    /* "toolbelt/process_trees.pyx":358
+ *         read_process_tree(data_dict=tree, host=new_host)
+ *     if make_unique:
+ *         new_host.unique_only = True             # <<<<<<<<<<<<<<
+ *         new_host.unique_tree_counts = data['unique_tree_counts']
+ *     return new_host
+ */
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_new_host, __pyx_n_s_unique_only, Py_True) < 0) __PYX_ERR(0, 358, __pyx_L1_error)
+
+    /* "toolbelt/process_trees.pyx":359
+ *     if make_unique:
+ *         new_host.unique_only = True
+ *         new_host.unique_tree_counts = data['unique_tree_counts']             # <<<<<<<<<<<<<<
+ *     return new_host
+ * 
+ */
+    __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_n_u_unique_tree_counts); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 359, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_new_host, __pyx_n_s_unique_tree_counts, __pyx_t_4) < 0) __PYX_ERR(0, 359, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+    /* "toolbelt/process_trees.pyx":357
+ *     for _, tree in data['trees'].items():
+ *         read_process_tree(data_dict=tree, host=new_host)
+ *     if make_unique:             # <<<<<<<<<<<<<<
+ *         new_host.unique_only = True
+ *         new_host.unique_tree_counts = data['unique_tree_counts']
+ */
+  }
+
+  /* "toolbelt/process_trees.pyx":360
+ *         new_host.unique_only = True
+ *         new_host.unique_tree_counts = data['unique_tree_counts']
  *     return new_host             # <<<<<<<<<<<<<<
+ * 
+ * 
  */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_new_host);
   __pyx_r = __pyx_v_new_host;
   goto __pyx_L0;
 
-  /* "toolbelt/process_trees.pyx":332
+  /* "toolbelt/process_trees.pyx":340
  * 
  * 
  * def read_host(filepath=None, json_str=None):             # <<<<<<<<<<<<<<
@@ -10113,6 +10439,253 @@ static PyObject *__pyx_pf_8toolbelt_13process_trees_2read_host(CYTHON_UNUSED PyO
   __Pyx_XDECREF(__pyx_v_data);
   __Pyx_XDECREF(__pyx_v_new_host);
   __Pyx_XDECREF(__pyx_v__);
+  __Pyx_XDECREF(__pyx_v_tree);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "toolbelt/process_trees.pyx":363
+ * 
+ * 
+ * def find_all_matches(host, new_tree):             # <<<<<<<<<<<<<<
+ *     results = []
+ *     for tree_id, tree in host.process_trees.items():
+ */
+
+/* Python wrapper */
+static PyObject *__pyx_pw_8toolbelt_13process_trees_5find_all_matches(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_8toolbelt_13process_trees_5find_all_matches = {"find_all_matches", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_8toolbelt_13process_trees_5find_all_matches, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_8toolbelt_13process_trees_5find_all_matches(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+  PyObject *__pyx_v_host = 0;
+  PyObject *__pyx_v_new_tree = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("find_all_matches (wrapper)", 0);
+  {
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_host,&__pyx_n_s_new_tree,0};
+    PyObject* values[2] = {0,0};
+    if (unlikely(__pyx_kwds)) {
+      Py_ssize_t kw_args;
+      const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
+      switch (pos_args) {
+        case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      kw_args = PyDict_Size(__pyx_kwds);
+      switch (pos_args) {
+        case  0:
+        if (likely((values[0] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_host)) != 0)) kw_args--;
+        else goto __pyx_L5_argtuple_error;
+        CYTHON_FALLTHROUGH;
+        case  1:
+        if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_new_tree)) != 0)) kw_args--;
+        else {
+          __Pyx_RaiseArgtupleInvalid("find_all_matches", 1, 2, 2, 1); __PYX_ERR(0, 363, __pyx_L3_error)
+        }
+      }
+      if (unlikely(kw_args > 0)) {
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "find_all_matches") < 0)) __PYX_ERR(0, 363, __pyx_L3_error)
+      }
+    } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+      values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
+    }
+    __pyx_v_host = values[0];
+    __pyx_v_new_tree = values[1];
+  }
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("find_all_matches", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 363, __pyx_L3_error)
+  __pyx_L3_error:;
+  __Pyx_AddTraceback("toolbelt.process_trees.find_all_matches", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_8toolbelt_13process_trees_4find_all_matches(__pyx_self, __pyx_v_host, __pyx_v_new_tree);
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_8toolbelt_13process_trees_4find_all_matches(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_host, PyObject *__pyx_v_new_tree) {
+  PyObject *__pyx_v_results = NULL;
+  PyObject *__pyx_v_tree_id = NULL;
+  PyObject *__pyx_v_tree = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  Py_ssize_t __pyx_t_2;
+  Py_ssize_t __pyx_t_3;
+  int __pyx_t_4;
+  PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
+  int __pyx_t_7;
+  PyObject *__pyx_t_8 = NULL;
+  int __pyx_t_9;
+  int __pyx_t_10;
+  __Pyx_RefNannySetupContext("find_all_matches", 0);
+
+  /* "toolbelt/process_trees.pyx":364
+ * 
+ * def find_all_matches(host, new_tree):
+ *     results = []             # <<<<<<<<<<<<<<
+ *     for tree_id, tree in host.process_trees.items():
+ *         if tree.matches(new_tree):
+ */
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 364, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_v_results = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "toolbelt/process_trees.pyx":365
+ * def find_all_matches(host, new_tree):
+ *     results = []
+ *     for tree_id, tree in host.process_trees.items():             # <<<<<<<<<<<<<<
+ *         if tree.matches(new_tree):
+ *             results.append(tree_id)
+ */
+  __pyx_t_2 = 0;
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_host, __pyx_n_s_process_trees); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 365, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (unlikely(__pyx_t_5 == Py_None)) {
+    PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
+    __PYX_ERR(0, 365, __pyx_L1_error)
+  }
+  __pyx_t_6 = __Pyx_dict_iterator(__pyx_t_5, 0, __pyx_n_s_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 365, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __Pyx_XDECREF(__pyx_t_1);
+  __pyx_t_1 = __pyx_t_6;
+  __pyx_t_6 = 0;
+  while (1) {
+    __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_6, &__pyx_t_5, NULL, __pyx_t_4);
+    if (unlikely(__pyx_t_7 == 0)) break;
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 365, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_GOTREF(__pyx_t_5);
+    __Pyx_XDECREF_SET(__pyx_v_tree_id, __pyx_t_6);
+    __pyx_t_6 = 0;
+    __Pyx_XDECREF_SET(__pyx_v_tree, __pyx_t_5);
+    __pyx_t_5 = 0;
+
+    /* "toolbelt/process_trees.pyx":366
+ *     results = []
+ *     for tree_id, tree in host.process_trees.items():
+ *         if tree.matches(new_tree):             # <<<<<<<<<<<<<<
+ *             results.append(tree_id)
+ *     if len(results) > 0:
+ */
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_tree, __pyx_n_s_matches); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 366, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_8 = NULL;
+    if (CYTHON_UNPACK_METHODS && likely(PyMethod_Check(__pyx_t_6))) {
+      __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_6);
+      if (likely(__pyx_t_8)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_6);
+        __Pyx_INCREF(__pyx_t_8);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_6, function);
+      }
+    }
+    __pyx_t_5 = (__pyx_t_8) ? __Pyx_PyObject_Call2Args(__pyx_t_6, __pyx_t_8, __pyx_v_new_tree) : __Pyx_PyObject_CallOneArg(__pyx_t_6, __pyx_v_new_tree);
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 366, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely(__pyx_t_9 < 0)) __PYX_ERR(0, 366, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    if (__pyx_t_9) {
+
+      /* "toolbelt/process_trees.pyx":367
+ *     for tree_id, tree in host.process_trees.items():
+ *         if tree.matches(new_tree):
+ *             results.append(tree_id)             # <<<<<<<<<<<<<<
+ *     if len(results) > 0:
+ *         return results
+ */
+      __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_results, __pyx_v_tree_id); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 367, __pyx_L1_error)
+
+      /* "toolbelt/process_trees.pyx":366
+ *     results = []
+ *     for tree_id, tree in host.process_trees.items():
+ *         if tree.matches(new_tree):             # <<<<<<<<<<<<<<
+ *             results.append(tree_id)
+ *     if len(results) > 0:
+ */
+    }
+  }
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "toolbelt/process_trees.pyx":368
+ *         if tree.matches(new_tree):
+ *             results.append(tree_id)
+ *     if len(results) > 0:             # <<<<<<<<<<<<<<
+ *         return results
+ *     else:
+ */
+  __pyx_t_3 = PyList_GET_SIZE(__pyx_v_results); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 368, __pyx_L1_error)
+  __pyx_t_9 = ((__pyx_t_3 > 0) != 0);
+  if (__pyx_t_9) {
+
+    /* "toolbelt/process_trees.pyx":369
+ *             results.append(tree_id)
+ *     if len(results) > 0:
+ *         return results             # <<<<<<<<<<<<<<
+ *     else:
+ *         return None
+ */
+    __Pyx_XDECREF(__pyx_r);
+    __Pyx_INCREF(__pyx_v_results);
+    __pyx_r = __pyx_v_results;
+    goto __pyx_L0;
+
+    /* "toolbelt/process_trees.pyx":368
+ *         if tree.matches(new_tree):
+ *             results.append(tree_id)
+ *     if len(results) > 0:             # <<<<<<<<<<<<<<
+ *         return results
+ *     else:
+ */
+  }
+
+  /* "toolbelt/process_trees.pyx":371
+ *         return results
+ *     else:
+ *         return None             # <<<<<<<<<<<<<<
+ */
+  /*else*/ {
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+    goto __pyx_L0;
+  }
+
+  /* "toolbelt/process_trees.pyx":363
+ * 
+ * 
+ * def find_all_matches(host, new_tree):             # <<<<<<<<<<<<<<
+ *     results = []
+ *     for tree_id, tree in host.process_trees.items():
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_AddTraceback("toolbelt.process_trees.find_all_matches", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_results);
+  __Pyx_XDECREF(__pyx_v_tree_id);
   __Pyx_XDECREF(__pyx_v_tree);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
@@ -10178,6 +10751,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_Host_del_tree, __pyx_k_Host_del_tree, sizeof(__pyx_k_Host_del_tree), 0, 0, 1, 1},
   {&__pyx_n_s_Host_drop_duplicates, __pyx_k_Host_drop_duplicates, sizeof(__pyx_k_Host_drop_duplicates), 0, 0, 1, 1},
   {&__pyx_n_s_Host_find_unique_trees, __pyx_k_Host_find_unique_trees, sizeof(__pyx_k_Host_find_unique_trees), 0, 0, 1, 1},
+  {&__pyx_n_s_Host_get_trees, __pyx_k_Host_get_trees, sizeof(__pyx_k_Host_get_trees), 0, 0, 1, 1},
   {&__pyx_n_s_Host_make_id, __pyx_k_Host_make_id, sizeof(__pyx_k_Host_make_id), 0, 0, 1, 1},
   {&__pyx_n_s_Host_to_dict, __pyx_k_Host_to_dict, sizeof(__pyx_k_Host_to_dict), 0, 0, 1, 1},
   {&__pyx_n_s_Host_to_json, __pyx_k_Host_to_json, sizeof(__pyx_k_Host_to_json), 0, 0, 1, 1},
@@ -10197,7 +10771,9 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_ProcessTree___repr, __pyx_k_ProcessTree___repr, sizeof(__pyx_k_ProcessTree___repr), 0, 0, 1, 1},
   {&__pyx_n_s_ProcessTree___str, __pyx_k_ProcessTree___str, sizeof(__pyx_k_ProcessTree___str), 0, 0, 1, 1},
   {&__pyx_n_s_ProcessTree_append_proc, __pyx_k_ProcessTree_append_proc, sizeof(__pyx_k_ProcessTree_append_proc), 0, 0, 1, 1},
+  {&__pyx_n_s_ProcessTree_get_host, __pyx_k_ProcessTree_get_host, sizeof(__pyx_k_ProcessTree_get_host), 0, 0, 1, 1},
   {&__pyx_n_s_ProcessTree_push_proc, __pyx_k_ProcessTree_push_proc, sizeof(__pyx_k_ProcessTree_push_proc), 0, 0, 1, 1},
+  {&__pyx_n_s_ProcessTree_set_host, __pyx_k_ProcessTree_set_host, sizeof(__pyx_k_ProcessTree_set_host), 0, 0, 1, 1},
   {&__pyx_n_s_ProcessTree_to_dict, __pyx_k_ProcessTree_to_dict, sizeof(__pyx_k_ProcessTree_to_dict), 0, 0, 1, 1},
   {&__pyx_n_s_ProcessTree_to_json, __pyx_k_ProcessTree_to_json, sizeof(__pyx_k_ProcessTree_to_json), 0, 0, 1, 1},
   {&__pyx_kp_u_Process_Instance_of, __pyx_k_Process_Instance_of, sizeof(__pyx_k_Process_Instance_of), 0, 1, 0, 0},
@@ -10218,10 +10794,9 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_kp_u_The_designated_parent_GUID_does, __pyx_k_The_designated_parent_GUID_does, sizeof(__pyx_k_The_designated_parent_GUID_does), 0, 1, 0, 0},
   {&__pyx_n_s_Tree, __pyx_k_Tree, sizeof(__pyx_k_Tree), 0, 0, 1, 1},
   {&__pyx_n_s_ValueError, __pyx_k_ValueError, sizeof(__pyx_k_ValueError), 0, 0, 1, 1},
+  {&__pyx_n_s__17, __pyx_k__17, sizeof(__pyx_k__17), 0, 0, 1, 1},
   {&__pyx_kp_u__2, __pyx_k__2, sizeof(__pyx_k__2), 0, 1, 0, 0},
-  {&__pyx_n_s__26, __pyx_k__26, sizeof(__pyx_k__26), 0, 0, 1, 1},
   {&__pyx_n_s_add_tree, __pyx_k_add_tree, sizeof(__pyx_k_add_tree), 0, 0, 1, 1},
-  {&__pyx_n_s_append, __pyx_k_append, sizeof(__pyx_k_append), 0, 0, 1, 1},
   {&__pyx_n_s_append_proc, __pyx_k_append_proc, sizeof(__pyx_k_append_proc), 0, 0, 1, 1},
   {&__pyx_n_s_array, __pyx_k_array, sizeof(__pyx_k_array), 0, 0, 1, 1},
   {&__pyx_n_s_check_tree, __pyx_k_check_tree, sizeof(__pyx_k_check_tree), 0, 0, 1, 1},
@@ -10248,16 +10823,18 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_exit, __pyx_k_exit, sizeof(__pyx_k_exit), 0, 0, 1, 1},
   {&__pyx_n_s_f, __pyx_k_f, sizeof(__pyx_k_f), 0, 0, 1, 1},
   {&__pyx_n_s_filepath, __pyx_k_filepath, sizeof(__pyx_k_filepath), 0, 0, 1, 1},
+  {&__pyx_n_s_find_all_matches, __pyx_k_find_all_matches, sizeof(__pyx_k_find_all_matches), 0, 0, 1, 1},
   {&__pyx_n_s_find_and_add_child, __pyx_k_find_and_add_child, sizeof(__pyx_k_find_and_add_child), 0, 0, 1, 1},
   {&__pyx_n_s_find_and_set_parent, __pyx_k_find_and_set_parent, sizeof(__pyx_k_find_and_set_parent), 0, 0, 1, 1},
   {&__pyx_n_s_find_unique_trees, __pyx_k_find_unique_trees, sizeof(__pyx_k_find_unique_trees), 0, 0, 1, 1},
   {&__pyx_n_s_fix_date, __pyx_k_fix_date, sizeof(__pyx_k_fix_date), 0, 0, 1, 1},
+  {&__pyx_n_s_get_host, __pyx_k_get_host, sizeof(__pyx_k_get_host), 0, 0, 1, 1},
   {&__pyx_n_s_get_layers, __pyx_k_get_layers, sizeof(__pyx_k_get_layers), 0, 0, 1, 1},
   {&__pyx_n_s_get_path, __pyx_k_get_path, sizeof(__pyx_k_get_path), 0, 0, 1, 1},
   {&__pyx_n_s_get_time, __pyx_k_get_time, sizeof(__pyx_k_get_time), 0, 0, 1, 1},
+  {&__pyx_n_s_get_trees, __pyx_k_get_trees, sizeof(__pyx_k_get_trees), 0, 0, 1, 1},
   {&__pyx_n_s_guid, __pyx_k_guid, sizeof(__pyx_k_guid), 0, 0, 1, 1},
   {&__pyx_n_s_hashlib, __pyx_k_hashlib, sizeof(__pyx_k_hashlib), 0, 0, 1, 1},
-  {&__pyx_n_s_have_match, __pyx_k_have_match, sizeof(__pyx_k_have_match), 0, 0, 1, 1},
   {&__pyx_n_s_hexdigest, __pyx_k_hexdigest, sizeof(__pyx_k_hexdigest), 0, 0, 1, 1},
   {&__pyx_n_s_host, __pyx_k_host, sizeof(__pyx_k_host), 0, 0, 1, 1},
   {&__pyx_n_u_host, __pyx_k_host, sizeof(__pyx_k_host), 0, 1, 0, 1},
@@ -10288,6 +10865,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_loads, __pyx_k_loads, sizeof(__pyx_k_loads), 0, 0, 1, 1},
   {&__pyx_n_s_main, __pyx_k_main, sizeof(__pyx_k_main), 0, 0, 1, 1},
   {&__pyx_n_s_make_id, __pyx_k_make_id, sizeof(__pyx_k_make_id), 0, 0, 1, 1},
+  {&__pyx_n_s_make_unique, __pyx_k_make_unique, sizeof(__pyx_k_make_unique), 0, 0, 1, 1},
   {&__pyx_n_s_match_dict, __pyx_k_match_dict, sizeof(__pyx_k_match_dict), 0, 0, 1, 1},
   {&__pyx_n_s_matches, __pyx_k_matches, sizeof(__pyx_k_matches), 0, 0, 1, 1},
   {&__pyx_n_s_max, __pyx_k_max, sizeof(__pyx_k_max), 0, 0, 1, 1},
@@ -10342,10 +10920,12 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_remaining_id_check, __pyx_k_remaining_id_check, sizeof(__pyx_k_remaining_id_check), 0, 0, 1, 1},
   {&__pyx_n_s_remaining_trees, __pyx_k_remaining_trees, sizeof(__pyx_k_remaining_trees), 0, 0, 1, 1},
   {&__pyx_n_s_repr, __pyx_k_repr, sizeof(__pyx_k_repr), 0, 0, 1, 1},
+  {&__pyx_n_s_results, __pyx_k_results, sizeof(__pyx_k_results), 0, 0, 1, 1},
   {&__pyx_n_s_ret_val, __pyx_k_ret_val, sizeof(__pyx_k_ret_val), 0, 0, 1, 1},
   {&__pyx_n_s_retained_tree_id, __pyx_k_retained_tree_id, sizeof(__pyx_k_retained_tree_id), 0, 0, 1, 1},
   {&__pyx_n_s_return_dict, __pyx_k_return_dict, sizeof(__pyx_k_return_dict), 0, 0, 1, 1},
   {&__pyx_n_s_self, __pyx_k_self, sizeof(__pyx_k_self), 0, 0, 1, 1},
+  {&__pyx_n_s_set_host, __pyx_k_set_host, sizeof(__pyx_k_set_host), 0, 0, 1, 1},
   {&__pyx_n_s_set_path, __pyx_k_set_path, sizeof(__pyx_k_set_path), 0, 0, 1, 1},
   {&__pyx_n_s_set_time, __pyx_k_set_time, sizeof(__pyx_k_set_time), 0, 0, 1, 1},
   {&__pyx_n_s_staticmethod, __pyx_k_staticmethod, sizeof(__pyx_k_staticmethod), 0, 0, 1, 1},
@@ -10363,9 +10943,6 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_kp_s_toolbelt_process_trees_pyx, __pyx_k_toolbelt_process_trees_pyx, sizeof(__pyx_k_toolbelt_process_trees_pyx), 0, 0, 1, 0},
   {&__pyx_n_s_tree, __pyx_k_tree, sizeof(__pyx_k_tree), 0, 0, 1, 1},
   {&__pyx_n_s_tree1_id, __pyx_k_tree1_id, sizeof(__pyx_k_tree1_id), 0, 0, 1, 1},
-  {&__pyx_n_s_tree1_obj, __pyx_k_tree1_obj, sizeof(__pyx_k_tree1_obj), 0, 0, 1, 1},
-  {&__pyx_n_s_tree2_id, __pyx_k_tree2_id, sizeof(__pyx_k_tree2_id), 0, 0, 1, 1},
-  {&__pyx_n_s_tree2_obj, __pyx_k_tree2_obj, sizeof(__pyx_k_tree2_obj), 0, 0, 1, 1},
   {&__pyx_n_s_tree_2, __pyx_k_tree_2, sizeof(__pyx_k_tree_2), 0, 0, 1, 1},
   {&__pyx_n_s_tree_id, __pyx_k_tree_id, sizeof(__pyx_k_tree_id), 0, 0, 1, 1},
   {&__pyx_n_u_tree_id, __pyx_k_tree_id, sizeof(__pyx_k_tree_id), 0, 1, 0, 1},
@@ -10378,7 +10955,6 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_kp_u_unique, __pyx_k_unique, sizeof(__pyx_k_unique), 0, 1, 0, 0},
   {&__pyx_n_u_unique_2, __pyx_k_unique_2, sizeof(__pyx_k_unique_2), 0, 1, 0, 1},
   {&__pyx_n_s_unique_only, __pyx_k_unique_only, sizeof(__pyx_k_unique_only), 0, 0, 1, 1},
-  {&__pyx_n_u_unique_only, __pyx_k_unique_only, sizeof(__pyx_k_unique_only), 0, 1, 0, 1},
   {&__pyx_n_s_unique_tree_counts, __pyx_k_unique_tree_counts, sizeof(__pyx_k_unique_tree_counts), 0, 0, 1, 1},
   {&__pyx_n_u_unique_tree_counts, __pyx_k_unique_tree_counts, sizeof(__pyx_k_unique_tree_counts), 0, 1, 0, 1},
   {&__pyx_n_s_unique_tree_dict, __pyx_k_unique_tree_dict, sizeof(__pyx_k_unique_tree_dict), 0, 0, 1, 1},
@@ -10393,11 +10969,11 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
 };
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
   __pyx_builtin_staticmethod = __Pyx_GetBuiltinName(__pyx_n_s_staticmethod); if (!__pyx_builtin_staticmethod) __PYX_ERR(0, 41, __pyx_L1_error)
-  __pyx_builtin_open = __Pyx_GetBuiltinName(__pyx_n_s_open); if (!__pyx_builtin_open) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_builtin_open = __Pyx_GetBuiltinName(__pyx_n_s_open); if (!__pyx_builtin_open) __PYX_ERR(0, 95, __pyx_L1_error)
   __pyx_builtin_IndexError = __Pyx_GetBuiltinName(__pyx_n_s_IndexError); if (!__pyx_builtin_IndexError) __PYX_ERR(0, 128, __pyx_L1_error)
-  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_n_s_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(0, 173, __pyx_L1_error)
-  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 203, __pyx_L1_error)
-  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 314, __pyx_L1_error)
+  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_n_s_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(0, 181, __pyx_L1_error)
+  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 211, __pyx_L1_error)
+  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 322, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -10412,64 +10988,64 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     def make_id():
  *         return hashlib.md5(str(np.random.rand()).encode('utf8')).hexdigest()[:7]             # <<<<<<<<<<<<<<
  * 
- *     def add_tree(self, new_tree):
+ *     def get_trees(self):
  */
   __pyx_slice__3 = PySlice_New(Py_None, __pyx_int_7, Py_None); if (unlikely(!__pyx_slice__3)) __PYX_ERR(0, 43, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_slice__3);
   __Pyx_GIVEREF(__pyx_slice__3);
 
-  /* "toolbelt/process_trees.pyx":87
+  /* "toolbelt/process_trees.pyx":95
  *             return json.dumps(self.to_dict(), indent=indent)
  *         else:
  *             with open(filepath, 'w') as f:             # <<<<<<<<<<<<<<
  *                 json.dump(self.to_dict(), f, indent=indent)
  * 
  */
-  __pyx_tuple__4 = PyTuple_Pack(3, Py_None, Py_None, Py_None); if (unlikely(!__pyx_tuple__4)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_tuple__4 = PyTuple_Pack(3, Py_None, Py_None, Py_None); if (unlikely(!__pyx_tuple__4)) __PYX_ERR(0, 95, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__4);
   __Pyx_GIVEREF(__pyx_tuple__4);
 
-  /* "toolbelt/process_trees.pyx":203
+  /* "toolbelt/process_trees.pyx":211
  *             self.nodes[guid] = new_node
  *         else:  # if the node already exists, raise an error
  *             raise ValueError('That node already exists.')             # <<<<<<<<<<<<<<
  * 
  *         # if they passed a GUID for a parent, try looking it up and adding it
  */
-  __pyx_tuple__5 = PyTuple_Pack(1, __pyx_kp_u_That_node_already_exists); if (unlikely(!__pyx_tuple__5)) __PYX_ERR(0, 203, __pyx_L1_error)
+  __pyx_tuple__5 = PyTuple_Pack(1, __pyx_kp_u_That_node_already_exists); if (unlikely(!__pyx_tuple__5)) __PYX_ERR(0, 211, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__5);
   __Pyx_GIVEREF(__pyx_tuple__5);
 
-  /* "toolbelt/process_trees.pyx":210
+  /* "toolbelt/process_trees.pyx":218
  *         # If the parent GUID is invalid
  *         elif parent_guid and parent_guid not in self.nodes.keys():
  *             raise ValueError('The designated parent GUID does not exist.')             # <<<<<<<<<<<<<<
  *         # Make sure that the node we added did not break the tree structure into multiple trees
  *         if not ignore_structure and len(self.nodes.keys()) > 1:
  */
-  __pyx_tuple__6 = PyTuple_Pack(1, __pyx_kp_u_The_designated_parent_GUID_does); if (unlikely(!__pyx_tuple__6)) __PYX_ERR(0, 210, __pyx_L1_error)
+  __pyx_tuple__6 = PyTuple_Pack(1, __pyx_kp_u_The_designated_parent_GUID_does); if (unlikely(!__pyx_tuple__6)) __PYX_ERR(0, 218, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__6);
   __Pyx_GIVEREF(__pyx_tuple__6);
 
-  /* "toolbelt/process_trees.pyx":230
+  /* "toolbelt/process_trees.pyx":238
  *             self.nodes[guid] = new_node
  *         else:
  *             raise ValueError('That node already exists')             # <<<<<<<<<<<<<<
  * 
  *         if len(children_guids) > 0:
  */
-  __pyx_tuple__7 = PyTuple_Pack(1, __pyx_kp_u_That_node_already_exists_2); if (unlikely(!__pyx_tuple__7)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_tuple__7 = PyTuple_Pack(1, __pyx_kp_u_That_node_already_exists_2); if (unlikely(!__pyx_tuple__7)) __PYX_ERR(0, 238, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__7);
   __Pyx_GIVEREF(__pyx_tuple__7);
 
-  /* "toolbelt/process_trees.pyx":310
+  /* "toolbelt/process_trees.pyx":318
  *             data = data_dict
  *     else:
  *         raise ValueError('No valid data provided.')             # <<<<<<<<<<<<<<
  * 
  *     new_tree = ProcessTree(tree_id=data['tree_id'], host=host)
  */
-  __pyx_tuple__8 = PyTuple_Pack(1, __pyx_kp_u_No_valid_data_provided); if (unlikely(!__pyx_tuple__8)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __pyx_tuple__8 = PyTuple_Pack(1, __pyx_kp_u_No_valid_data_provided); if (unlikely(!__pyx_tuple__8)) __PYX_ERR(0, 318, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__8);
   __Pyx_GIVEREF(__pyx_tuple__8);
 
@@ -10524,68 +11100,80 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   /* "toolbelt/process_trees.pyx":45
  *         return hashlib.md5(str(np.random.rand()).encode('utf8')).hexdigest()[:7]
  * 
+ *     def get_trees(self):             # <<<<<<<<<<<<<<
+ *         return [tree for _, tree in self.process_trees.items()]
+ * 
+ */
+  __pyx_tuple__18 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s__17, __pyx_n_s_tree); if (unlikely(!__pyx_tuple__18)) __PYX_ERR(0, 45, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__18);
+  __Pyx_GIVEREF(__pyx_tuple__18);
+  __pyx_codeobj__19 = (PyObject*)__Pyx_PyCode_New(1, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__18, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_get_trees, 45, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__19)) __PYX_ERR(0, 45, __pyx_L1_error)
+
+  /* "toolbelt/process_trees.pyx":48
+ *         return [tree for _, tree in self.process_trees.items()]
+ * 
  *     def add_tree(self, new_tree):             # <<<<<<<<<<<<<<
  *         """
  *         Add a new tree to the Host's dict of trees.
  */
-  __pyx_tuple__17 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_new_tree, __pyx_n_s_existing_id, __pyx_n_s_existing_tree); if (unlikely(!__pyx_tuple__17)) __PYX_ERR(0, 45, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__17);
-  __Pyx_GIVEREF(__pyx_tuple__17);
-  __pyx_codeobj__18 = (PyObject*)__Pyx_PyCode_New(2, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_add_tree, 45, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__18)) __PYX_ERR(0, 45, __pyx_L1_error)
+  __pyx_tuple__20 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_new_tree, __pyx_n_s_existing_id, __pyx_n_s_existing_tree); if (unlikely(!__pyx_tuple__20)) __PYX_ERR(0, 48, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__20);
+  __Pyx_GIVEREF(__pyx_tuple__20);
+  __pyx_codeobj__21 = (PyObject*)__Pyx_PyCode_New(2, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__20, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_add_tree, 48, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__21)) __PYX_ERR(0, 48, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":63
+  /* "toolbelt/process_trees.pyx":71
  *             self.process_trees[new_tree.tree_id] = new_tree
  * 
  *     def del_tree(self, tree_to_remove):             # <<<<<<<<<<<<<<
  *         if not isinstance(tree_to_remove, str):
  *             tree_to_remove = tree_to_remove.tree_id
  */
-  __pyx_tuple__19 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_tree_to_remove, __pyx_n_s_id, __pyx_n_s_tree_2); if (unlikely(!__pyx_tuple__19)) __PYX_ERR(0, 63, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__19);
-  __Pyx_GIVEREF(__pyx_tuple__19);
-  __pyx_codeobj__20 = (PyObject*)__Pyx_PyCode_New(2, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__19, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_del_tree, 63, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__20)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_tuple__22 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_tree_to_remove, __pyx_n_s_id, __pyx_n_s_tree_2); if (unlikely(!__pyx_tuple__22)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__22);
+  __Pyx_GIVEREF(__pyx_tuple__22);
+  __pyx_codeobj__23 = (PyObject*)__Pyx_PyCode_New(2, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__22, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_del_tree, 71, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__23)) __PYX_ERR(0, 71, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":68
+  /* "toolbelt/process_trees.pyx":76
  *         self.process_trees = {_id: _tree for _id, _tree in self.process_trees.items() if _id != tree_to_remove}
  * 
  *     def to_dict(self):             # <<<<<<<<<<<<<<
  *         ret_val = {'host_id': self.host_id,
  *                    'host_name': self.name,
  */
-  __pyx_tuple__21 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_ret_val, __pyx_n_s_trees_dict, __pyx_n_s_tree_id, __pyx_n_s_tree); if (unlikely(!__pyx_tuple__21)) __PYX_ERR(0, 68, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__21);
-  __Pyx_GIVEREF(__pyx_tuple__21);
-  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(1, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__21, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_to_dict, 68, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_tuple__24 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_ret_val, __pyx_n_s_trees_dict, __pyx_n_s_tree_id, __pyx_n_s_tree); if (unlikely(!__pyx_tuple__24)) __PYX_ERR(0, 76, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__24);
+  __Pyx_GIVEREF(__pyx_tuple__24);
+  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(1, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_to_dict, 76, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 76, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":83
+  /* "toolbelt/process_trees.pyx":91
  *         return ret_val
  * 
  *     def to_json(self, filepath=None, indent=4):             # <<<<<<<<<<<<<<
  *         if not filepath:
  *             return json.dumps(self.to_dict(), indent=indent)
  */
-  __pyx_tuple__23 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_filepath, __pyx_n_s_indent, __pyx_n_s_f); if (unlikely(!__pyx_tuple__23)) __PYX_ERR(0, 83, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__23);
-  __Pyx_GIVEREF(__pyx_tuple__23);
-  __pyx_codeobj__24 = (PyObject*)__Pyx_PyCode_New(3, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_to_json, 83, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__24)) __PYX_ERR(0, 83, __pyx_L1_error)
-  __pyx_tuple__25 = PyTuple_Pack(2, ((PyObject *)Py_None), ((PyObject *)__pyx_int_4)); if (unlikely(!__pyx_tuple__25)) __PYX_ERR(0, 83, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__25);
-  __Pyx_GIVEREF(__pyx_tuple__25);
+  __pyx_tuple__26 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_filepath, __pyx_n_s_indent, __pyx_n_s_f); if (unlikely(!__pyx_tuple__26)) __PYX_ERR(0, 91, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__26);
+  __Pyx_GIVEREF(__pyx_tuple__26);
+  __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(3, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__26, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_to_json, 91, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(0, 91, __pyx_L1_error)
+  __pyx_tuple__28 = PyTuple_Pack(2, ((PyObject *)Py_None), ((PyObject *)__pyx_int_4)); if (unlikely(!__pyx_tuple__28)) __PYX_ERR(0, 91, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__28);
+  __Pyx_GIVEREF(__pyx_tuple__28);
 
-  /* "toolbelt/process_trees.pyx":90
+  /* "toolbelt/process_trees.pyx":98
  *                 json.dump(self.to_dict(), f, indent=indent)
  * 
  *     def find_unique_trees(self, return_dict=False):             # <<<<<<<<<<<<<<
  *         remaining_trees = [_id for _id, _ in self.process_trees.items()]
  *         match_dict = dict()
  */
-  __pyx_tuple__27 = PyTuple_Pack(12, __pyx_n_s_self, __pyx_n_s_return_dict, __pyx_n_s_remaining_trees, __pyx_n_s_match_dict, __pyx_n_s_tree1_id, __pyx_n_s_tree1_obj, __pyx_n_s_tree2_id, __pyx_n_s_tree2_obj, __pyx_n_s_have_match, __pyx_n_s_id, __pyx_n_s__26, __pyx_n_s_x); if (unlikely(!__pyx_tuple__27)) __PYX_ERR(0, 90, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__27);
-  __Pyx_GIVEREF(__pyx_tuple__27);
-  __pyx_codeobj__28 = (PyObject*)__Pyx_PyCode_New(2, 0, 12, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__27, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_find_unique_trees, 90, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__28)) __PYX_ERR(0, 90, __pyx_L1_error)
-  __pyx_tuple__29 = PyTuple_Pack(1, ((PyObject *)Py_False)); if (unlikely(!__pyx_tuple__29)) __PYX_ERR(0, 90, __pyx_L1_error)
+  __pyx_tuple__29 = PyTuple_Pack(10, __pyx_n_s_self, __pyx_n_s_return_dict, __pyx_n_s_remaining_trees, __pyx_n_s_match_dict, __pyx_n_s_tree1_id, __pyx_n_s_matches, __pyx_n_s_id, __pyx_n_s__17, __pyx_n_s_x, __pyx_n_s_x); if (unlikely(!__pyx_tuple__29)) __PYX_ERR(0, 98, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__29);
   __Pyx_GIVEREF(__pyx_tuple__29);
+  __pyx_codeobj__30 = (PyObject*)__Pyx_PyCode_New(2, 0, 10, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__29, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_find_unique_trees, 98, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__30)) __PYX_ERR(0, 98, __pyx_L1_error)
+  __pyx_tuple__31 = PyTuple_Pack(1, ((PyObject *)Py_False)); if (unlikely(!__pyx_tuple__31)) __PYX_ERR(0, 98, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__31);
+  __Pyx_GIVEREF(__pyx_tuple__31);
 
   /* "toolbelt/process_trees.pyx":115
  *             return list(match_dict.keys())
@@ -10594,10 +11182,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *         remaining_id_check = []
  *         unique_tree_dict = self.find_unique_trees(return_dict=True)
  */
-  __pyx_tuple__30 = PyTuple_Pack(6, __pyx_n_s_self, __pyx_n_s_remaining_id_check, __pyx_n_s_unique_tree_dict, __pyx_n_s_retained_tree_id, __pyx_n_s_duplicates, __pyx_n_s_drop_tree_id); if (unlikely(!__pyx_tuple__30)) __PYX_ERR(0, 115, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__30);
-  __Pyx_GIVEREF(__pyx_tuple__30);
-  __pyx_codeobj__31 = (PyObject*)__Pyx_PyCode_New(1, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__30, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_drop_duplicates, 115, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__31)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_tuple__32 = PyTuple_Pack(6, __pyx_n_s_self, __pyx_n_s_remaining_id_check, __pyx_n_s_unique_tree_dict, __pyx_n_s_retained_tree_id, __pyx_n_s_duplicates, __pyx_n_s_drop_tree_id); if (unlikely(!__pyx_tuple__32)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__32);
+  __Pyx_GIVEREF(__pyx_tuple__32);
+  __pyx_codeobj__33 = (PyObject*)__Pyx_PyCode_New(1, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__32, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_drop_duplicates, 115, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__33)) __PYX_ERR(0, 115, __pyx_L1_error)
 
   /* "toolbelt/process_trees.pyx":130
  *             raise IndexError(f'The de-duplication process failed for tree {self.name}')
@@ -10606,10 +11194,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *         self.unique_only = True
  *         self.drop_duplicates()
  */
-  __pyx_tuple__32 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__32)) __PYX_ERR(0, 130, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__32);
-  __Pyx_GIVEREF(__pyx_tuple__32);
-  __pyx_codeobj__33 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__32, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_to_unique, 130, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__33)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_tuple__34 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__34)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__34);
+  __Pyx_GIVEREF(__pyx_tuple__34);
+  __pyx_codeobj__35 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__34, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_to_unique, 130, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__35)) __PYX_ERR(0, 130, __pyx_L1_error)
 
   /* "toolbelt/process_trees.pyx":134
  *         self.drop_duplicates()
@@ -10618,10 +11206,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *         if not self.unique_only:
  *             return False
  */
-  __pyx_tuple__34 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_values, __pyx_n_s__26, __pyx_n_s_val); if (unlikely(!__pyx_tuple__34)) __PYX_ERR(0, 134, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__34);
-  __Pyx_GIVEREF(__pyx_tuple__34);
-  __pyx_codeobj__35 = (PyObject*)__Pyx_PyCode_New(1, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__34, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_tree_stats, 134, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__35)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_tuple__36 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_values, __pyx_n_s__17, __pyx_n_s_val); if (unlikely(!__pyx_tuple__36)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__36);
+  __Pyx_GIVEREF(__pyx_tuple__36);
+  __pyx_codeobj__37 = (PyObject*)__Pyx_PyCode_New(1, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__36, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_tree_stats, 134, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__37)) __PYX_ERR(0, 134, __pyx_L1_error)
 
   /* "toolbelt/process_trees.pyx":148
  *     It can contain only 1 trunk/origin process, but n number of leafs on k branches
@@ -10630,13 +11218,13 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *         Tree.__init__(self, tree_id=tree_id)
  *         # Inherited =
  */
-  __pyx_tuple__36 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_tree_id, __pyx_n_s_host); if (unlikely(!__pyx_tuple__36)) __PYX_ERR(0, 148, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__36);
-  __Pyx_GIVEREF(__pyx_tuple__36);
-  __pyx_codeobj__37 = (PyObject*)__Pyx_PyCode_New(3, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__36, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_init, 148, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__37)) __PYX_ERR(0, 148, __pyx_L1_error)
-  __pyx_tuple__38 = PyTuple_Pack(2, ((PyObject *)Py_None), ((PyObject *)Py_None)); if (unlikely(!__pyx_tuple__38)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __pyx_tuple__38 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_tree_id, __pyx_n_s_host); if (unlikely(!__pyx_tuple__38)) __PYX_ERR(0, 148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__38);
   __Pyx_GIVEREF(__pyx_tuple__38);
+  __pyx_codeobj__39 = (PyObject*)__Pyx_PyCode_New(3, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__38, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_init, 148, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__39)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __pyx_tuple__40 = PyTuple_Pack(2, ((PyObject *)Py_None), ((PyObject *)Py_None)); if (unlikely(!__pyx_tuple__40)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__40);
+  __Pyx_GIVEREF(__pyx_tuple__40);
 
   /* "toolbelt/process_trees.pyx":160
  *             self.Host.add_tree(self)
@@ -10645,10 +11233,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *         return f"<Instance of ProcessTree with ID:{self.tree_id}>"
  *         # f"<Process Tree {self.tree_num} for {self.Host.name}. with {len(self.nodes.keys())} processes>"
  */
-  __pyx_tuple__39 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__39)) __PYX_ERR(0, 160, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__39);
-  __Pyx_GIVEREF(__pyx_tuple__39);
-  __pyx_codeobj__40 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__39, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_repr, 160, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__40)) __PYX_ERR(0, 160, __pyx_L1_error)
+  __pyx_tuple__41 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__41)) __PYX_ERR(0, 160, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__41);
+  __Pyx_GIVEREF(__pyx_tuple__41);
+  __pyx_codeobj__42 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__41, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_repr, 160, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__42)) __PYX_ERR(0, 160, __pyx_L1_error)
 
   /* "toolbelt/process_trees.pyx":164
  *         # f"<Process Tree {self.tree_num} for {self.Host.name}. with {len(self.nodes.keys())} processes>"
@@ -10657,217 +11245,253 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *         return f"Process Tree for host {self.Host} with {len(self.nodes.keys())} nodes."
  * 
  */
-  __pyx_tuple__41 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__41)) __PYX_ERR(0, 164, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__41);
-  __Pyx_GIVEREF(__pyx_tuple__41);
-  __pyx_codeobj__42 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__41, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_str, 164, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__42)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_tuple__43 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__43)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__43);
+  __Pyx_GIVEREF(__pyx_tuple__43);
+  __pyx_codeobj__44 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__43, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_str, 164, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__44)) __PYX_ERR(0, 164, __pyx_L1_error)
 
   /* "toolbelt/process_trees.pyx":167
  *         return f"Process Tree for host {self.Host} with {len(self.nodes.keys())} nodes."
+ * 
+ *     def get_host(self):             # <<<<<<<<<<<<<<
+ *         return Host
+ * 
+ */
+  __pyx_tuple__45 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__45)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__45);
+  __Pyx_GIVEREF(__pyx_tuple__45);
+  __pyx_codeobj__46 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__45, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_get_host, 167, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__46)) __PYX_ERR(0, 167, __pyx_L1_error)
+
+  /* "toolbelt/process_trees.pyx":170
+ *         return Host
+ * 
+ *     def set_host(self, host):             # <<<<<<<<<<<<<<
+ *         self.Host = host
+ *         if host:
+ */
+  __pyx_tuple__47 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_host); if (unlikely(!__pyx_tuple__47)) __PYX_ERR(0, 170, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__47);
+  __Pyx_GIVEREF(__pyx_tuple__47);
+  __pyx_codeobj__48 = (PyObject*)__Pyx_PyCode_New(2, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__47, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_set_host, 170, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__48)) __PYX_ERR(0, 170, __pyx_L1_error)
+
+  /* "toolbelt/process_trees.pyx":175
+ *             self.Host.add_tree(self)
  * 
  *     def to_dict(self):             # <<<<<<<<<<<<<<
  *         ret_val = {'tree_id': self.tree_id}
  *         if self.Host:
  */
-  __pyx_tuple__43 = PyTuple_Pack(9, __pyx_n_s_self, __pyx_n_s_ret_val, __pyx_n_s_layers, __pyx_n_s_layers_dict, __pyx_n_s_layer_idx, __pyx_n_s_layer, __pyx_n_s_layer_dict, __pyx_n_s_node_idx, __pyx_n_s_node); if (unlikely(!__pyx_tuple__43)) __PYX_ERR(0, 167, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__43);
-  __Pyx_GIVEREF(__pyx_tuple__43);
-  __pyx_codeobj__44 = (PyObject*)__Pyx_PyCode_New(1, 0, 9, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__43, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_to_dict, 167, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__44)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_tuple__49 = PyTuple_Pack(9, __pyx_n_s_self, __pyx_n_s_ret_val, __pyx_n_s_layers, __pyx_n_s_layers_dict, __pyx_n_s_layer_idx, __pyx_n_s_layer, __pyx_n_s_layer_dict, __pyx_n_s_node_idx, __pyx_n_s_node); if (unlikely(!__pyx_tuple__49)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__49);
+  __Pyx_GIVEREF(__pyx_tuple__49);
+  __pyx_codeobj__50 = (PyObject*)__Pyx_PyCode_New(1, 0, 9, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__49, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_to_dict, 175, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__50)) __PYX_ERR(0, 175, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":181
+  /* "toolbelt/process_trees.pyx":189
  *         return ret_val
  * 
  *     def to_json(self, filepath=None, indent=4):             # <<<<<<<<<<<<<<
  *         if not filepath:
  *             return json.dumps(self.to_dict(), indent=indent)
  */
-  __pyx_tuple__45 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_filepath, __pyx_n_s_indent, __pyx_n_s_f); if (unlikely(!__pyx_tuple__45)) __PYX_ERR(0, 181, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__45);
-  __Pyx_GIVEREF(__pyx_tuple__45);
-  __pyx_codeobj__46 = (PyObject*)__Pyx_PyCode_New(3, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__45, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_to_json, 181, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__46)) __PYX_ERR(0, 181, __pyx_L1_error)
-  __pyx_tuple__47 = PyTuple_Pack(2, ((PyObject *)Py_None), ((PyObject *)__pyx_int_4)); if (unlikely(!__pyx_tuple__47)) __PYX_ERR(0, 181, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__47);
-  __Pyx_GIVEREF(__pyx_tuple__47);
+  __pyx_tuple__51 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_filepath, __pyx_n_s_indent, __pyx_n_s_f); if (unlikely(!__pyx_tuple__51)) __PYX_ERR(0, 189, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__51);
+  __Pyx_GIVEREF(__pyx_tuple__51);
+  __pyx_codeobj__52 = (PyObject*)__Pyx_PyCode_New(3, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__51, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_to_json, 189, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__52)) __PYX_ERR(0, 189, __pyx_L1_error)
+  __pyx_tuple__53 = PyTuple_Pack(2, ((PyObject *)Py_None), ((PyObject *)__pyx_int_4)); if (unlikely(!__pyx_tuple__53)) __PYX_ERR(0, 189, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__53);
+  __Pyx_GIVEREF(__pyx_tuple__53);
 
-  /* "toolbelt/process_trees.pyx":188
+  /* "toolbelt/process_trees.pyx":196
  *                 json.dump(self.to_dict(), f, indent=indent)
  * 
  *     def append_proc(self, guid, proc_name, parent_guid=None, timestamp=None, proc_path=None, ignore_structure=False):             # <<<<<<<<<<<<<<
  *         """
  *         Adds a new node at end of the tree; assumes it is the master node or already has a parent
  */
-  __pyx_tuple__48 = PyTuple_Pack(8, __pyx_n_s_self, __pyx_n_s_guid, __pyx_n_s_proc_name, __pyx_n_s_parent_guid, __pyx_n_s_timestamp, __pyx_n_s_proc_path, __pyx_n_s_ignore_structure, __pyx_n_s_new_node); if (unlikely(!__pyx_tuple__48)) __PYX_ERR(0, 188, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__48);
-  __Pyx_GIVEREF(__pyx_tuple__48);
-  __pyx_codeobj__49 = (PyObject*)__Pyx_PyCode_New(7, 0, 8, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__48, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_append_proc, 188, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__49)) __PYX_ERR(0, 188, __pyx_L1_error)
-  __pyx_tuple__50 = PyTuple_Pack(4, ((PyObject *)Py_None), ((PyObject *)Py_None), ((PyObject *)Py_None), ((PyObject *)Py_False)); if (unlikely(!__pyx_tuple__50)) __PYX_ERR(0, 188, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__50);
-  __Pyx_GIVEREF(__pyx_tuple__50);
+  __pyx_tuple__54 = PyTuple_Pack(8, __pyx_n_s_self, __pyx_n_s_guid, __pyx_n_s_proc_name, __pyx_n_s_parent_guid, __pyx_n_s_timestamp, __pyx_n_s_proc_path, __pyx_n_s_ignore_structure, __pyx_n_s_new_node); if (unlikely(!__pyx_tuple__54)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__54);
+  __Pyx_GIVEREF(__pyx_tuple__54);
+  __pyx_codeobj__55 = (PyObject*)__Pyx_PyCode_New(7, 0, 8, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__54, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_append_proc, 196, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__55)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __pyx_tuple__56 = PyTuple_Pack(4, ((PyObject *)Py_None), ((PyObject *)Py_None), ((PyObject *)Py_None), ((PyObject *)Py_False)); if (unlikely(!__pyx_tuple__56)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__56);
+  __Pyx_GIVEREF(__pyx_tuple__56);
 
-  /* "toolbelt/process_trees.pyx":215
+  /* "toolbelt/process_trees.pyx":223
  *             self.check_tree()
  * 
  *     def push_proc(self, guid, proc_name, children_guids=(), timestamp=None, proc_path=None, ignore_structure=False):             # <<<<<<<<<<<<<<
  *         """
  *         Add a new parent node to the structure, needs to be setting the master node as a child, otherwise it will break
  */
-  __pyx_tuple__51 = PyTuple_Pack(9, __pyx_n_s_self, __pyx_n_s_guid, __pyx_n_s_proc_name, __pyx_n_s_children_guids, __pyx_n_s_timestamp, __pyx_n_s_proc_path, __pyx_n_s_ignore_structure, __pyx_n_s_new_node, __pyx_n_s_child_guid); if (unlikely(!__pyx_tuple__51)) __PYX_ERR(0, 215, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__51);
-  __Pyx_GIVEREF(__pyx_tuple__51);
-  __pyx_codeobj__52 = (PyObject*)__Pyx_PyCode_New(7, 0, 9, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__51, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_push_proc, 215, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__52)) __PYX_ERR(0, 215, __pyx_L1_error)
-  __pyx_tuple__53 = PyTuple_Pack(4, ((PyObject*)__pyx_empty_tuple), ((PyObject *)Py_None), ((PyObject *)Py_None), ((PyObject *)Py_False)); if (unlikely(!__pyx_tuple__53)) __PYX_ERR(0, 215, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__53);
-  __Pyx_GIVEREF(__pyx_tuple__53);
+  __pyx_tuple__57 = PyTuple_Pack(9, __pyx_n_s_self, __pyx_n_s_guid, __pyx_n_s_proc_name, __pyx_n_s_children_guids, __pyx_n_s_timestamp, __pyx_n_s_proc_path, __pyx_n_s_ignore_structure, __pyx_n_s_new_node, __pyx_n_s_child_guid); if (unlikely(!__pyx_tuple__57)) __PYX_ERR(0, 223, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__57);
+  __Pyx_GIVEREF(__pyx_tuple__57);
+  __pyx_codeobj__58 = (PyObject*)__Pyx_PyCode_New(7, 0, 9, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__57, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_push_proc, 223, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__58)) __PYX_ERR(0, 223, __pyx_L1_error)
+  __pyx_tuple__59 = PyTuple_Pack(4, ((PyObject*)__pyx_empty_tuple), ((PyObject *)Py_None), ((PyObject *)Py_None), ((PyObject *)Py_False)); if (unlikely(!__pyx_tuple__59)) __PYX_ERR(0, 223, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__59);
+  __Pyx_GIVEREF(__pyx_tuple__59);
 
-  /* "toolbelt/process_trees.pyx":244
+  /* "toolbelt/process_trees.pyx":252
  *     A node is a single instance of a process.  It can have only 1 parent (not required) but n children.
  *     """
  *     def __init__(self, guid, proc_name, tree, timestamp=None, proc_path=None):             # <<<<<<<<<<<<<<
  *         Node.__init__(self, node_id=guid, name=proc_name, tree=tree,)
  *         # Inherited =
  */
-  __pyx_tuple__54 = PyTuple_Pack(6, __pyx_n_s_self, __pyx_n_s_guid, __pyx_n_s_proc_name, __pyx_n_s_tree, __pyx_n_s_timestamp, __pyx_n_s_proc_path); if (unlikely(!__pyx_tuple__54)) __PYX_ERR(0, 244, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__54);
-  __Pyx_GIVEREF(__pyx_tuple__54);
-  __pyx_codeobj__55 = (PyObject*)__Pyx_PyCode_New(6, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__54, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_init, 244, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__55)) __PYX_ERR(0, 244, __pyx_L1_error)
-  __pyx_tuple__56 = PyTuple_Pack(2, ((PyObject *)Py_None), ((PyObject *)Py_None)); if (unlikely(!__pyx_tuple__56)) __PYX_ERR(0, 244, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__56);
-  __Pyx_GIVEREF(__pyx_tuple__56);
+  __pyx_tuple__60 = PyTuple_Pack(6, __pyx_n_s_self, __pyx_n_s_guid, __pyx_n_s_proc_name, __pyx_n_s_tree, __pyx_n_s_timestamp, __pyx_n_s_proc_path); if (unlikely(!__pyx_tuple__60)) __PYX_ERR(0, 252, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__60);
+  __Pyx_GIVEREF(__pyx_tuple__60);
+  __pyx_codeobj__61 = (PyObject*)__Pyx_PyCode_New(6, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__60, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_init, 252, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__61)) __PYX_ERR(0, 252, __pyx_L1_error)
+  __pyx_tuple__62 = PyTuple_Pack(2, ((PyObject *)Py_None), ((PyObject *)Py_None)); if (unlikely(!__pyx_tuple__62)) __PYX_ERR(0, 252, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__62);
+  __Pyx_GIVEREF(__pyx_tuple__62);
 
-  /* "toolbelt/process_trees.pyx":255
+  /* "toolbelt/process_trees.pyx":263
  *         self.timestamp = self.fix_date(timestamp)
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
  *         return f"<Instance of Process with ID:{self.node_id} in ProcessTree:{self.Tree.tree_id}>"
  * 
  */
-  __pyx_tuple__57 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__57)) __PYX_ERR(0, 255, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__57);
-  __Pyx_GIVEREF(__pyx_tuple__57);
-  __pyx_codeobj__58 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__57, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_repr, 255, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__58)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __pyx_tuple__63 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__63)) __PYX_ERR(0, 263, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__63);
+  __Pyx_GIVEREF(__pyx_tuple__63);
+  __pyx_codeobj__64 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__63, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_repr, 263, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__64)) __PYX_ERR(0, 263, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":258
+  /* "toolbelt/process_trees.pyx":266
  *         return f"<Instance of Process with ID:{self.node_id} in ProcessTree:{self.Tree.tree_id}>"
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
  *         return f"Process Instance of {self.name} with ID {self.node_id} in Process Tree {self.Tree.tree_id}"
  * 
  */
-  __pyx_tuple__59 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__59)) __PYX_ERR(0, 258, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__59);
-  __Pyx_GIVEREF(__pyx_tuple__59);
-  __pyx_codeobj__60 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__59, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_str, 258, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__60)) __PYX_ERR(0, 258, __pyx_L1_error)
+  __pyx_tuple__65 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__65)) __PYX_ERR(0, 266, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__65);
+  __Pyx_GIVEREF(__pyx_tuple__65);
+  __pyx_codeobj__66 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_str, 266, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__66)) __PYX_ERR(0, 266, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":262
+  /* "toolbelt/process_trees.pyx":270
  * 
  *     @staticmethod
  *     def fix_date(passed_date):             # <<<<<<<<<<<<<<
  *         """
  *         Uses Numpy datetime64 declaration to validate and standardize dates.  If it throws an error for numpy, it will
  */
-  __pyx_tuple__61 = PyTuple_Pack(2, __pyx_n_s_passed_date, __pyx_n_s_clean_date); if (unlikely(!__pyx_tuple__61)) __PYX_ERR(0, 262, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__61);
-  __Pyx_GIVEREF(__pyx_tuple__61);
-  __pyx_codeobj__62 = (PyObject*)__Pyx_PyCode_New(1, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__61, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_fix_date, 262, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__62)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_tuple__67 = PyTuple_Pack(2, __pyx_n_s_passed_date, __pyx_n_s_clean_date); if (unlikely(!__pyx_tuple__67)) __PYX_ERR(0, 270, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__67);
+  __Pyx_GIVEREF(__pyx_tuple__67);
+  __pyx_codeobj__68 = (PyObject*)__Pyx_PyCode_New(1, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__67, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_fix_date, 270, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__68)) __PYX_ERR(0, 270, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":275
+  /* "toolbelt/process_trees.pyx":283
  *             return None
  * 
  *     def to_dict(self):             # <<<<<<<<<<<<<<
  *         ret_val = Node.to_dict(self)
  *         ret_val['proc_path'] = self.proc_path
  */
-  __pyx_tuple__63 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_ret_val); if (unlikely(!__pyx_tuple__63)) __PYX_ERR(0, 275, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__63);
-  __Pyx_GIVEREF(__pyx_tuple__63);
-  __pyx_codeobj__64 = (PyObject*)__Pyx_PyCode_New(1, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__63, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_to_dict, 275, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__64)) __PYX_ERR(0, 275, __pyx_L1_error)
+  __pyx_tuple__69 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_ret_val); if (unlikely(!__pyx_tuple__69)) __PYX_ERR(0, 283, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__69);
+  __Pyx_GIVEREF(__pyx_tuple__69);
+  __pyx_codeobj__70 = (PyObject*)__Pyx_PyCode_New(1, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__69, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_to_dict, 283, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__70)) __PYX_ERR(0, 283, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":281
+  /* "toolbelt/process_trees.pyx":289
  *         return ret_val
  * 
  *     def to_json(self, filepath=None, indent=4):             # <<<<<<<<<<<<<<
  *         if not filepath:
  *             return json.dumps(self.to_dict(), indent=indent)
  */
-  __pyx_tuple__65 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_filepath, __pyx_n_s_indent, __pyx_n_s_f); if (unlikely(!__pyx_tuple__65)) __PYX_ERR(0, 281, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__65);
-  __Pyx_GIVEREF(__pyx_tuple__65);
-  __pyx_codeobj__66 = (PyObject*)__Pyx_PyCode_New(3, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_to_json, 281, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__66)) __PYX_ERR(0, 281, __pyx_L1_error)
-  __pyx_tuple__67 = PyTuple_Pack(2, ((PyObject *)Py_None), ((PyObject *)__pyx_int_4)); if (unlikely(!__pyx_tuple__67)) __PYX_ERR(0, 281, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__67);
-  __Pyx_GIVEREF(__pyx_tuple__67);
+  __pyx_tuple__71 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_filepath, __pyx_n_s_indent, __pyx_n_s_f); if (unlikely(!__pyx_tuple__71)) __PYX_ERR(0, 289, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__71);
+  __Pyx_GIVEREF(__pyx_tuple__71);
+  __pyx_codeobj__72 = (PyObject*)__Pyx_PyCode_New(3, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__71, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_to_json, 289, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__72)) __PYX_ERR(0, 289, __pyx_L1_error)
+  __pyx_tuple__73 = PyTuple_Pack(2, ((PyObject *)Py_None), ((PyObject *)__pyx_int_4)); if (unlikely(!__pyx_tuple__73)) __PYX_ERR(0, 289, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__73);
+  __Pyx_GIVEREF(__pyx_tuple__73);
 
-  /* "toolbelt/process_trees.pyx":288
+  /* "toolbelt/process_trees.pyx":296
  *                 json.dump(self.to_dict(), f, indent=indent)
  * 
  *     def get_time(self):             # <<<<<<<<<<<<<<
  *         return self.timestamp
  * 
  */
-  __pyx_tuple__68 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__68)) __PYX_ERR(0, 288, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__68);
-  __Pyx_GIVEREF(__pyx_tuple__68);
-  __pyx_codeobj__69 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__68, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_get_time, 288, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__69)) __PYX_ERR(0, 288, __pyx_L1_error)
+  __pyx_tuple__74 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__74)) __PYX_ERR(0, 296, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__74);
+  __Pyx_GIVEREF(__pyx_tuple__74);
+  __pyx_codeobj__75 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__74, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_get_time, 296, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__75)) __PYX_ERR(0, 296, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":291
+  /* "toolbelt/process_trees.pyx":299
  *         return self.timestamp
  * 
  *     def set_time(self, timestamp):             # <<<<<<<<<<<<<<
  *         self.timestamp = self.fix_date(timestamp)
  * 
  */
-  __pyx_tuple__70 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_timestamp); if (unlikely(!__pyx_tuple__70)) __PYX_ERR(0, 291, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__70);
-  __Pyx_GIVEREF(__pyx_tuple__70);
-  __pyx_codeobj__71 = (PyObject*)__Pyx_PyCode_New(2, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__70, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_set_time, 291, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__71)) __PYX_ERR(0, 291, __pyx_L1_error)
+  __pyx_tuple__76 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_timestamp); if (unlikely(!__pyx_tuple__76)) __PYX_ERR(0, 299, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__76);
+  __Pyx_GIVEREF(__pyx_tuple__76);
+  __pyx_codeobj__77 = (PyObject*)__Pyx_PyCode_New(2, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__76, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_set_time, 299, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__77)) __PYX_ERR(0, 299, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":294
+  /* "toolbelt/process_trees.pyx":302
  *         self.timestamp = self.fix_date(timestamp)
  * 
  *     def get_path(self):             # <<<<<<<<<<<<<<
  *         return self.proc_path
  * 
  */
-  __pyx_tuple__72 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__72)) __PYX_ERR(0, 294, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__72);
-  __Pyx_GIVEREF(__pyx_tuple__72);
-  __pyx_codeobj__73 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__72, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_get_path, 294, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__73)) __PYX_ERR(0, 294, __pyx_L1_error)
+  __pyx_tuple__78 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__78)) __PYX_ERR(0, 302, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__78);
+  __Pyx_GIVEREF(__pyx_tuple__78);
+  __pyx_codeobj__79 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__78, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_get_path, 302, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__79)) __PYX_ERR(0, 302, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":297
+  /* "toolbelt/process_trees.pyx":305
  *         return self.proc_path
  * 
  *     def set_path(self, path: str):             # <<<<<<<<<<<<<<
  *         self.proc_path = path
  * 
  */
-  __pyx_tuple__74 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_path); if (unlikely(!__pyx_tuple__74)) __PYX_ERR(0, 297, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__74);
-  __Pyx_GIVEREF(__pyx_tuple__74);
-  __pyx_codeobj__75 = (PyObject*)__Pyx_PyCode_New(2, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__74, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_set_path, 297, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__75)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __pyx_tuple__80 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_path); if (unlikely(!__pyx_tuple__80)) __PYX_ERR(0, 305, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__80);
+  __Pyx_GIVEREF(__pyx_tuple__80);
+  __pyx_codeobj__81 = (PyObject*)__Pyx_PyCode_New(2, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__80, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_set_path, 305, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__81)) __PYX_ERR(0, 305, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":301
+  /* "toolbelt/process_trees.pyx":309
  * 
  * 
  * def read_process_tree(filepath=None, json_str=None, data_dict=None, host=None):             # <<<<<<<<<<<<<<
  *     if filepath:
  *         data = json.load(open(filepath))
  */
-  __pyx_tuple__76 = PyTuple_Pack(14, __pyx_n_s_filepath, __pyx_n_s_json_str, __pyx_n_s_data_dict, __pyx_n_s_host, __pyx_n_s_data, __pyx_n_s_new_tree, __pyx_n_s_num_layers, __pyx_n_s_layer, __pyx_n_s_layer_data, __pyx_n_s__26, __pyx_n_s_node, __pyx_n_s_parent_id, __pyx_n_s_path, __pyx_n_s_time); if (unlikely(!__pyx_tuple__76)) __PYX_ERR(0, 301, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__76);
-  __Pyx_GIVEREF(__pyx_tuple__76);
-  __pyx_codeobj__77 = (PyObject*)__Pyx_PyCode_New(4, 0, 14, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__76, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_read_process_tree, 301, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__77)) __PYX_ERR(0, 301, __pyx_L1_error)
+  __pyx_tuple__82 = PyTuple_Pack(14, __pyx_n_s_filepath, __pyx_n_s_json_str, __pyx_n_s_data_dict, __pyx_n_s_host, __pyx_n_s_data, __pyx_n_s_new_tree, __pyx_n_s_num_layers, __pyx_n_s_layer, __pyx_n_s_layer_data, __pyx_n_s__17, __pyx_n_s_node, __pyx_n_s_parent_id, __pyx_n_s_path, __pyx_n_s_time); if (unlikely(!__pyx_tuple__82)) __PYX_ERR(0, 309, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__82);
+  __Pyx_GIVEREF(__pyx_tuple__82);
+  __pyx_codeobj__83 = (PyObject*)__Pyx_PyCode_New(4, 0, 14, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__82, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_read_process_tree, 309, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__83)) __PYX_ERR(0, 309, __pyx_L1_error)
 
-  /* "toolbelt/process_trees.pyx":332
+  /* "toolbelt/process_trees.pyx":340
  * 
  * 
  * def read_host(filepath=None, json_str=None):             # <<<<<<<<<<<<<<
  *     if filepath:
  *         data = json.load(open(filepath))
  */
-  __pyx_tuple__78 = PyTuple_Pack(6, __pyx_n_s_filepath, __pyx_n_s_json_str, __pyx_n_s_data, __pyx_n_s_new_host, __pyx_n_s__26, __pyx_n_s_tree); if (unlikely(!__pyx_tuple__78)) __PYX_ERR(0, 332, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__78);
-  __Pyx_GIVEREF(__pyx_tuple__78);
-  __pyx_codeobj__79 = (PyObject*)__Pyx_PyCode_New(2, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__78, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_read_host, 332, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__79)) __PYX_ERR(0, 332, __pyx_L1_error)
+  __pyx_tuple__84 = PyTuple_Pack(7, __pyx_n_s_filepath, __pyx_n_s_json_str, __pyx_n_s_data, __pyx_n_s_make_unique, __pyx_n_s_new_host, __pyx_n_s__17, __pyx_n_s_tree); if (unlikely(!__pyx_tuple__84)) __PYX_ERR(0, 340, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__84);
+  __Pyx_GIVEREF(__pyx_tuple__84);
+  __pyx_codeobj__85 = (PyObject*)__Pyx_PyCode_New(2, 0, 7, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__84, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_read_host, 340, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__85)) __PYX_ERR(0, 340, __pyx_L1_error)
+
+  /* "toolbelt/process_trees.pyx":363
+ * 
+ * 
+ * def find_all_matches(host, new_tree):             # <<<<<<<<<<<<<<
+ *     results = []
+ *     for tree_id, tree in host.process_trees.items():
+ */
+  __pyx_tuple__86 = PyTuple_Pack(5, __pyx_n_s_host, __pyx_n_s_new_tree, __pyx_n_s_results, __pyx_n_s_tree_id, __pyx_n_s_tree); if (unlikely(!__pyx_tuple__86)) __PYX_ERR(0, 363, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__86);
+  __Pyx_GIVEREF(__pyx_tuple__86);
+  __pyx_codeobj__87 = (PyObject*)__Pyx_PyCode_New(2, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__86, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_toolbelt_process_trees_pyx, __pyx_n_s_find_all_matches, 363, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__87)) __PYX_ERR(0, 363, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -11293,63 +11917,75 @@ if (!__Pyx_RefNanny) {
   /* "toolbelt/process_trees.pyx":45
  *         return hashlib.md5(str(np.random.rand()).encode('utf8')).hexdigest()[:7]
  * 
+ *     def get_trees(self):             # <<<<<<<<<<<<<<
+ *         return [tree for _, tree in self.process_trees.items()]
+ * 
+ */
+  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_9get_trees, 0, __pyx_n_s_Host_get_trees, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__19)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 45, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_get_trees, __pyx_t_3) < 0) __PYX_ERR(0, 45, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "toolbelt/process_trees.pyx":48
+ *         return [tree for _, tree in self.process_trees.items()]
+ * 
  *     def add_tree(self, new_tree):             # <<<<<<<<<<<<<<
  *         """
  *         Add a new tree to the Host's dict of trees.
  */
-  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_9add_tree, 0, __pyx_n_s_Host_add_tree, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__18)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 45, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_11add_tree, 0, __pyx_n_s_Host_add_tree, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__21)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_add_tree, __pyx_t_3) < 0) __PYX_ERR(0, 45, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_add_tree, __pyx_t_3) < 0) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "toolbelt/process_trees.pyx":63
+  /* "toolbelt/process_trees.pyx":71
  *             self.process_trees[new_tree.tree_id] = new_tree
  * 
  *     def del_tree(self, tree_to_remove):             # <<<<<<<<<<<<<<
  *         if not isinstance(tree_to_remove, str):
  *             tree_to_remove = tree_to_remove.tree_id
  */
-  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_11del_tree, 0, __pyx_n_s_Host_del_tree, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__20)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_13del_tree, 0, __pyx_n_s_Host_del_tree, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__23)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_del_tree, __pyx_t_3) < 0) __PYX_ERR(0, 63, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_del_tree, __pyx_t_3) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "toolbelt/process_trees.pyx":68
+  /* "toolbelt/process_trees.pyx":76
  *         self.process_trees = {_id: _tree for _id, _tree in self.process_trees.items() if _id != tree_to_remove}
  * 
  *     def to_dict(self):             # <<<<<<<<<<<<<<
  *         ret_val = {'host_id': self.host_id,
  *                    'host_name': self.name,
  */
-  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_13to_dict, 0, __pyx_n_s_Host_to_dict, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_15to_dict, 0, __pyx_n_s_Host_to_dict, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__25)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_to_dict, __pyx_t_3) < 0) __PYX_ERR(0, 68, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_to_dict, __pyx_t_3) < 0) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "toolbelt/process_trees.pyx":83
+  /* "toolbelt/process_trees.pyx":91
  *         return ret_val
  * 
  *     def to_json(self, filepath=None, indent=4):             # <<<<<<<<<<<<<<
  *         if not filepath:
  *             return json.dumps(self.to_dict(), indent=indent)
  */
-  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_15to_json, 0, __pyx_n_s_Host_to_json, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__24)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_17to_json, 0, __pyx_n_s_Host_to_json, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__27)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 91, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__25);
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_to_json, __pyx_t_3) < 0) __PYX_ERR(0, 83, __pyx_L1_error)
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__28);
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_to_json, __pyx_t_3) < 0) __PYX_ERR(0, 91, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "toolbelt/process_trees.pyx":90
+  /* "toolbelt/process_trees.pyx":98
  *                 json.dump(self.to_dict(), f, indent=indent)
  * 
  *     def find_unique_trees(self, return_dict=False):             # <<<<<<<<<<<<<<
  *         remaining_trees = [_id for _id, _ in self.process_trees.items()]
  *         match_dict = dict()
  */
-  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_17find_unique_trees, 0, __pyx_n_s_Host_find_unique_trees, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__28)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 90, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_19find_unique_trees, 0, __pyx_n_s_Host_find_unique_trees, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__30)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 98, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__29);
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_find_unique_trees, __pyx_t_3) < 0) __PYX_ERR(0, 90, __pyx_L1_error)
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__31);
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_find_unique_trees, __pyx_t_3) < 0) __PYX_ERR(0, 98, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "toolbelt/process_trees.pyx":115
@@ -11359,7 +11995,7 @@ if (!__Pyx_RefNanny) {
  *         remaining_id_check = []
  *         unique_tree_dict = self.find_unique_trees(return_dict=True)
  */
-  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_19drop_duplicates, 0, __pyx_n_s_Host_drop_duplicates, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__31)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_21drop_duplicates, 0, __pyx_n_s_Host_drop_duplicates, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__33)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 115, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_drop_duplicates, __pyx_t_3) < 0) __PYX_ERR(0, 115, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -11371,7 +12007,7 @@ if (!__Pyx_RefNanny) {
  *         self.unique_only = True
  *         self.drop_duplicates()
  */
-  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_21to_unique, 0, __pyx_n_s_Host_to_unique, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__33)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_23to_unique, 0, __pyx_n_s_Host_to_unique, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__35)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_to_unique, __pyx_t_3) < 0) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -11383,7 +12019,7 @@ if (!__Pyx_RefNanny) {
  *         if not self.unique_only:
  *             return False
  */
-  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_23tree_stats, 0, __pyx_n_s_Host_tree_stats, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__35)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_4Host_25tree_stats, 0, __pyx_n_s_Host_tree_stats, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__37)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 134, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_tree_stats, __pyx_t_3) < 0) __PYX_ERR(0, 134, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -11427,9 +12063,9 @@ if (!__Pyx_RefNanny) {
  *         Tree.__init__(self, tree_id=tree_id)
  *         # Inherited =
  */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_1__init__, 0, __pyx_n_s_ProcessTree___init, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__37)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_1__init__, 0, __pyx_n_s_ProcessTree___init, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__39)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__38);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__40);
   if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_init, __pyx_t_4) < 0) __PYX_ERR(0, 148, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
@@ -11440,7 +12076,7 @@ if (!__Pyx_RefNanny) {
  *         return f"<Instance of ProcessTree with ID:{self.tree_id}>"
  *         # f"<Process Tree {self.tree_num} for {self.Host.name}. with {len(self.nodes.keys())} processes>"
  */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_3__repr__, 0, __pyx_n_s_ProcessTree___repr, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__40)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 160, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_3__repr__, 0, __pyx_n_s_ProcessTree___repr, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__42)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 160, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_repr, __pyx_t_4) < 0) __PYX_ERR(0, 160, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -11452,7 +12088,7 @@ if (!__Pyx_RefNanny) {
  *         return f"Process Tree for host {self.Host} with {len(self.nodes.keys())} nodes."
  * 
  */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_5__str__, 0, __pyx_n_s_ProcessTree___str, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__42)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_5__str__, 0, __pyx_n_s_ProcessTree___str, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__44)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_str, __pyx_t_4) < 0) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -11460,52 +12096,76 @@ if (!__Pyx_RefNanny) {
   /* "toolbelt/process_trees.pyx":167
  *         return f"Process Tree for host {self.Host} with {len(self.nodes.keys())} nodes."
  * 
+ *     def get_host(self):             # <<<<<<<<<<<<<<
+ *         return Host
+ * 
+ */
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_7get_host, 0, __pyx_n_s_ProcessTree_get_host, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__46)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_get_host, __pyx_t_4) < 0) __PYX_ERR(0, 167, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "toolbelt/process_trees.pyx":170
+ *         return Host
+ * 
+ *     def set_host(self, host):             # <<<<<<<<<<<<<<
+ *         self.Host = host
+ *         if host:
+ */
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_9set_host, 0, __pyx_n_s_ProcessTree_set_host, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__48)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 170, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_set_host, __pyx_t_4) < 0) __PYX_ERR(0, 170, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "toolbelt/process_trees.pyx":175
+ *             self.Host.add_tree(self)
+ * 
  *     def to_dict(self):             # <<<<<<<<<<<<<<
  *         ret_val = {'tree_id': self.tree_id}
  *         if self.Host:
  */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_7to_dict, 0, __pyx_n_s_ProcessTree_to_dict, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__44)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_11to_dict, 0, __pyx_n_s_ProcessTree_to_dict, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__50)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 175, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_to_dict, __pyx_t_4) < 0) __PYX_ERR(0, 167, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_to_dict, __pyx_t_4) < 0) __PYX_ERR(0, 175, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "toolbelt/process_trees.pyx":181
+  /* "toolbelt/process_trees.pyx":189
  *         return ret_val
  * 
  *     def to_json(self, filepath=None, indent=4):             # <<<<<<<<<<<<<<
  *         if not filepath:
  *             return json.dumps(self.to_dict(), indent=indent)
  */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_9to_json, 0, __pyx_n_s_ProcessTree_to_json, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__46)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_13to_json, 0, __pyx_n_s_ProcessTree_to_json, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__52)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__47);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_to_json, __pyx_t_4) < 0) __PYX_ERR(0, 181, __pyx_L1_error)
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__53);
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_to_json, __pyx_t_4) < 0) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "toolbelt/process_trees.pyx":188
+  /* "toolbelt/process_trees.pyx":196
  *                 json.dump(self.to_dict(), f, indent=indent)
  * 
  *     def append_proc(self, guid, proc_name, parent_guid=None, timestamp=None, proc_path=None, ignore_structure=False):             # <<<<<<<<<<<<<<
  *         """
  *         Adds a new node at end of the tree; assumes it is the master node or already has a parent
  */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_11append_proc, 0, __pyx_n_s_ProcessTree_append_proc, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__49)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_15append_proc, 0, __pyx_n_s_ProcessTree_append_proc, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__55)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__50);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_append_proc, __pyx_t_4) < 0) __PYX_ERR(0, 188, __pyx_L1_error)
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__56);
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_append_proc, __pyx_t_4) < 0) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "toolbelt/process_trees.pyx":215
+  /* "toolbelt/process_trees.pyx":223
  *             self.check_tree()
  * 
  *     def push_proc(self, guid, proc_name, children_guids=(), timestamp=None, proc_path=None, ignore_structure=False):             # <<<<<<<<<<<<<<
  *         """
  *         Add a new parent node to the structure, needs to be setting the master node as a child, otherwise it will break
  */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_13push_proc, 0, __pyx_n_s_ProcessTree_push_proc, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__52)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 215, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_11ProcessTree_17push_proc, 0, __pyx_n_s_ProcessTree_push_proc, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__58)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 223, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__53);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_push_proc, __pyx_t_4) < 0) __PYX_ERR(0, 215, __pyx_L1_error)
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__59);
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_push_proc, __pyx_t_4) < 0) __PYX_ERR(0, 223, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "toolbelt/process_trees.pyx":143
@@ -11523,200 +12183,212 @@ if (!__Pyx_RefNanny) {
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "toolbelt/process_trees.pyx":240
+  /* "toolbelt/process_trees.pyx":248
  * 
  * 
  * class Process(Node):             # <<<<<<<<<<<<<<
  *     """
  *     A node is a single instance of a process.  It can have only 1 parent (not required) but n children.
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_Node); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 240, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_Node); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 248, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = PyTuple_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 240, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 248, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_3);
   PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_3);
   __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 240, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 248, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_Py3MetaclassPrepare(__pyx_t_3, __pyx_t_2, __pyx_n_s_Process, __pyx_n_s_Process, (PyObject *) NULL, __pyx_n_s_toolbelt_process_trees, __pyx_kp_s_A_node_is_a_single_instance_of); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 240, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_Py3MetaclassPrepare(__pyx_t_3, __pyx_t_2, __pyx_n_s_Process, __pyx_n_s_Process, (PyObject *) NULL, __pyx_n_s_toolbelt_process_trees, __pyx_kp_s_A_node_is_a_single_instance_of); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 248, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
 
-  /* "toolbelt/process_trees.pyx":244
+  /* "toolbelt/process_trees.pyx":252
  *     A node is a single instance of a process.  It can have only 1 parent (not required) but n children.
  *     """
  *     def __init__(self, guid, proc_name, tree, timestamp=None, proc_path=None):             # <<<<<<<<<<<<<<
  *         Node.__init__(self, node_id=guid, name=proc_name, tree=tree,)
  *         # Inherited =
  */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_1__init__, 0, __pyx_n_s_Process___init, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__55)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_1__init__, 0, __pyx_n_s_Process___init, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__61)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 252, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__56);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_init, __pyx_t_4) < 0) __PYX_ERR(0, 244, __pyx_L1_error)
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__62);
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_init, __pyx_t_4) < 0) __PYX_ERR(0, 252, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "toolbelt/process_trees.pyx":255
+  /* "toolbelt/process_trees.pyx":263
  *         self.timestamp = self.fix_date(timestamp)
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
  *         return f"<Instance of Process with ID:{self.node_id} in ProcessTree:{self.Tree.tree_id}>"
  * 
  */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_3__repr__, 0, __pyx_n_s_Process___repr, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__58)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_3__repr__, 0, __pyx_n_s_Process___repr, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__64)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 263, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_repr, __pyx_t_4) < 0) __PYX_ERR(0, 255, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_repr, __pyx_t_4) < 0) __PYX_ERR(0, 263, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "toolbelt/process_trees.pyx":258
+  /* "toolbelt/process_trees.pyx":266
  *         return f"<Instance of Process with ID:{self.node_id} in ProcessTree:{self.Tree.tree_id}>"
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
  *         return f"Process Instance of {self.name} with ID {self.node_id} in Process Tree {self.Tree.tree_id}"
  * 
  */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_5__str__, 0, __pyx_n_s_Process___str, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__60)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 258, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_5__str__, 0, __pyx_n_s_Process___str, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__66)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 266, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_str, __pyx_t_4) < 0) __PYX_ERR(0, 258, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_str, __pyx_t_4) < 0) __PYX_ERR(0, 266, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "toolbelt/process_trees.pyx":262
+  /* "toolbelt/process_trees.pyx":270
  * 
  *     @staticmethod
  *     def fix_date(passed_date):             # <<<<<<<<<<<<<<
  *         """
  *         Uses Numpy datetime64 declaration to validate and standardize dates.  If it throws an error for numpy, it will
  */
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_7fix_date, __Pyx_CYFUNCTION_STATICMETHOD, __pyx_n_s_Process_fix_date, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__62)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_7fix_date, __Pyx_CYFUNCTION_STATICMETHOD, __pyx_n_s_Process_fix_date, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__68)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 270, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
 
-  /* "toolbelt/process_trees.pyx":261
+  /* "toolbelt/process_trees.pyx":269
  *         return f"Process Instance of {self.name} with ID {self.node_id} in Process Tree {self.Tree.tree_id}"
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
  *     def fix_date(passed_date):
  *         """
  */
-  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_builtin_staticmethod, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_builtin_staticmethod, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 269, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_fix_date, __pyx_t_5) < 0) __PYX_ERR(0, 262, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_fix_date, __pyx_t_5) < 0) __PYX_ERR(0, 270, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "toolbelt/process_trees.pyx":275
+  /* "toolbelt/process_trees.pyx":283
  *             return None
  * 
  *     def to_dict(self):             # <<<<<<<<<<<<<<
  *         ret_val = Node.to_dict(self)
  *         ret_val['proc_path'] = self.proc_path
  */
-  __pyx_t_5 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_9to_dict, 0, __pyx_n_s_Process_to_dict, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__64)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 275, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_9to_dict, 0, __pyx_n_s_Process_to_dict, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__70)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 283, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_to_dict, __pyx_t_5) < 0) __PYX_ERR(0, 275, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_to_dict, __pyx_t_5) < 0) __PYX_ERR(0, 283, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "toolbelt/process_trees.pyx":281
+  /* "toolbelt/process_trees.pyx":289
  *         return ret_val
  * 
  *     def to_json(self, filepath=None, indent=4):             # <<<<<<<<<<<<<<
  *         if not filepath:
  *             return json.dumps(self.to_dict(), indent=indent)
  */
-  __pyx_t_5 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_11to_json, 0, __pyx_n_s_Process_to_json, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__66)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 281, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_11to_json, 0, __pyx_n_s_Process_to_json, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__72)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 289, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_tuple__67);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_to_json, __pyx_t_5) < 0) __PYX_ERR(0, 281, __pyx_L1_error)
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_tuple__73);
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_to_json, __pyx_t_5) < 0) __PYX_ERR(0, 289, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "toolbelt/process_trees.pyx":288
+  /* "toolbelt/process_trees.pyx":296
  *                 json.dump(self.to_dict(), f, indent=indent)
  * 
  *     def get_time(self):             # <<<<<<<<<<<<<<
  *         return self.timestamp
  * 
  */
-  __pyx_t_5 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_13get_time, 0, __pyx_n_s_Process_get_time, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__69)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 288, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_13get_time, 0, __pyx_n_s_Process_get_time, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__75)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 296, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_get_time, __pyx_t_5) < 0) __PYX_ERR(0, 288, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_get_time, __pyx_t_5) < 0) __PYX_ERR(0, 296, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "toolbelt/process_trees.pyx":291
+  /* "toolbelt/process_trees.pyx":299
  *         return self.timestamp
  * 
  *     def set_time(self, timestamp):             # <<<<<<<<<<<<<<
  *         self.timestamp = self.fix_date(timestamp)
  * 
  */
-  __pyx_t_5 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_15set_time, 0, __pyx_n_s_Process_set_time, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__71)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 291, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_15set_time, 0, __pyx_n_s_Process_set_time, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__77)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 299, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_set_time, __pyx_t_5) < 0) __PYX_ERR(0, 291, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_set_time, __pyx_t_5) < 0) __PYX_ERR(0, 299, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "toolbelt/process_trees.pyx":294
+  /* "toolbelt/process_trees.pyx":302
  *         self.timestamp = self.fix_date(timestamp)
  * 
  *     def get_path(self):             # <<<<<<<<<<<<<<
  *         return self.proc_path
  * 
  */
-  __pyx_t_5 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_17get_path, 0, __pyx_n_s_Process_get_path, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__73)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 294, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_17get_path, 0, __pyx_n_s_Process_get_path, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__79)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 302, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_get_path, __pyx_t_5) < 0) __PYX_ERR(0, 294, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_get_path, __pyx_t_5) < 0) __PYX_ERR(0, 302, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "toolbelt/process_trees.pyx":297
+  /* "toolbelt/process_trees.pyx":305
  *         return self.proc_path
  * 
  *     def set_path(self, path: str):             # <<<<<<<<<<<<<<
  *         self.proc_path = path
  * 
  */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 305, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_path, __pyx_n_u_unicode) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_19set_path, 0, __pyx_n_s_Process_set_path, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__75)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_path, __pyx_n_u_unicode) < 0) __PYX_ERR(0, 305, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_7Process_19set_path, 0, __pyx_n_s_Process_set_path, NULL, __pyx_n_s_toolbelt_process_trees, __pyx_d, ((PyObject *)__pyx_codeobj__81)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 305, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_set_path, __pyx_t_4) < 0) __PYX_ERR(0, 297, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_1, __pyx_n_s_set_path, __pyx_t_4) < 0) __PYX_ERR(0, 305, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "toolbelt/process_trees.pyx":240
+  /* "toolbelt/process_trees.pyx":248
  * 
  * 
  * class Process(Node):             # <<<<<<<<<<<<<<
  *     """
  *     A node is a single instance of a process.  It can have only 1 parent (not required) but n children.
  */
-  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_3, __pyx_n_s_Process, __pyx_t_2, __pyx_t_1, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 240, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_3, __pyx_n_s_Process, __pyx_t_2, __pyx_t_1, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 248, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_Process, __pyx_t_4) < 0) __PYX_ERR(0, 240, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_Process, __pyx_t_4) < 0) __PYX_ERR(0, 248, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "toolbelt/process_trees.pyx":301
+  /* "toolbelt/process_trees.pyx":309
  * 
  * 
  * def read_process_tree(filepath=None, json_str=None, data_dict=None, host=None):             # <<<<<<<<<<<<<<
  *     if filepath:
  *         data = json.load(open(filepath))
  */
-  __pyx_t_2 = PyCFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_1read_process_tree, NULL, __pyx_n_s_toolbelt_process_trees); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 301, __pyx_L1_error)
+  __pyx_t_2 = PyCFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_1read_process_tree, NULL, __pyx_n_s_toolbelt_process_trees); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 309, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_read_process_tree, __pyx_t_2) < 0) __PYX_ERR(0, 301, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_read_process_tree, __pyx_t_2) < 0) __PYX_ERR(0, 309, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "toolbelt/process_trees.pyx":332
+  /* "toolbelt/process_trees.pyx":340
  * 
  * 
  * def read_host(filepath=None, json_str=None):             # <<<<<<<<<<<<<<
  *     if filepath:
  *         data = json.load(open(filepath))
  */
-  __pyx_t_2 = PyCFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_3read_host, NULL, __pyx_n_s_toolbelt_process_trees); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 332, __pyx_L1_error)
+  __pyx_t_2 = PyCFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_3read_host, NULL, __pyx_n_s_toolbelt_process_trees); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 340, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_read_host, __pyx_t_2) < 0) __PYX_ERR(0, 332, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_read_host, __pyx_t_2) < 0) __PYX_ERR(0, 340, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "toolbelt/process_trees.pyx":363
+ * 
+ * 
+ * def find_all_matches(host, new_tree):             # <<<<<<<<<<<<<<
+ *     results = []
+ *     for tree_id, tree in host.process_trees.items():
+ */
+  __pyx_t_2 = PyCFunction_NewEx(&__pyx_mdef_8toolbelt_13process_trees_5find_all_matches, NULL, __pyx_n_s_toolbelt_process_trees); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 363, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_find_all_matches, __pyx_t_2) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "toolbelt/process_trees.pyx":1
@@ -13271,43 +13943,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyDict_Keys(PyObject* d) {
         return PyDict_Keys(d);
 }
 
-/* append */
-static CYTHON_INLINE int __Pyx_PyObject_Append(PyObject* L, PyObject* x) {
-    if (likely(PyList_CheckExact(L))) {
-        if (unlikely(__Pyx_PyList_Append(L, x) < 0)) return -1;
-    } else {
-        PyObject* retval = __Pyx_PyObject_CallMethod1(L, __pyx_n_s_append, x);
-        if (unlikely(!retval))
-            return -1;
-        Py_DECREF(retval);
-    }
-    return 0;
-}
-
-/* DictGetItem */
-#if PY_MAJOR_VERSION >= 3 && !CYTHON_COMPILING_IN_PYPY
-static PyObject *__Pyx_PyDict_GetItem(PyObject *d, PyObject* key) {
-    PyObject *value;
-    value = PyDict_GetItemWithError(d, key);
-    if (unlikely(!value)) {
-        if (!PyErr_Occurred()) {
-            if (unlikely(PyTuple_Check(key))) {
-                PyObject* args = PyTuple_Pack(1, key);
-                if (likely(args)) {
-                    PyErr_SetObject(PyExc_KeyError, args);
-                    Py_DECREF(args);
-                }
-            } else {
-                PyErr_SetObject(PyExc_KeyError, key);
-            }
-        }
-        return NULL;
-    }
-    Py_INCREF(value);
-    return value;
-}
-#endif
-
 /* RaiseException */
 #if PY_MAJOR_VERSION < 3
 static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb,
@@ -13673,6 +14308,30 @@ static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *nam
 static CYTHON_INLINE void __Pyx_RaiseUnboundLocalError(const char *varname) {
     PyErr_Format(PyExc_UnboundLocalError, "local variable '%s' referenced before assignment", varname);
 }
+
+/* DictGetItem */
+#if PY_MAJOR_VERSION >= 3 && !CYTHON_COMPILING_IN_PYPY
+static PyObject *__Pyx_PyDict_GetItem(PyObject *d, PyObject* key) {
+    PyObject *value;
+    value = PyDict_GetItemWithError(d, key);
+    if (unlikely(!value)) {
+        if (!PyErr_Occurred()) {
+            if (unlikely(PyTuple_Check(key))) {
+                PyObject* args = PyTuple_Pack(1, key);
+                if (likely(args)) {
+                    PyErr_SetObject(PyExc_KeyError, args);
+                    Py_DECREF(args);
+                }
+            } else {
+                PyErr_SetObject(PyExc_KeyError, key);
+            }
+        }
+        return NULL;
+    }
+    Py_INCREF(value);
+    return value;
+}
+#endif
 
 /* Import */
 static PyObject *__Pyx_Import(PyObject *name, PyObject *from_list, int level) {
