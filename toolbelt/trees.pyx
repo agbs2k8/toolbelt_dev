@@ -204,6 +204,10 @@ class Tree:
         self.max_depth = self.starting_node.subtree_depth()
         return self.max_depth
 
+    def get_width(self):
+        self.max_width = len(self.get_leafs)
+        return self.max_width
+
     def to_graph(self):
         """
         Create NetworkX Directed Graph of the tree.  Nodes tracked by node_id
@@ -274,17 +278,17 @@ class Tree:
         if horizontal:
             pos = self.make_layout()
             if not figsize:
-                max_x, max_y = self.fix_plot_ratios(self.max_depth*3, self.max_width*3)
+                max_x, max_y = self.fix_plot_ratios(self.max_depth*4, self.max_width*4)
             else:
                 max_x, max_y = figsize
         else:
             pos = self.make_layout(horizontal=False)
             if not figsize:
-                max_y, max_x = self.fix_plot_ratios(self.max_depth*3, self.max_width*3)
+                max_y, max_x = self.fix_plot_ratios(self.max_depth*4, self.max_width*4)
             else:
                 max_x, max_y = figsize
 
-        font_size = int(max_x * (4 / 5))
+        font_size = int(max_x)
         node_size = max_x * ((2 / 3) * 1000)
 
         fig, ax = plt.subplots(figsize=(max_x, max_y))
