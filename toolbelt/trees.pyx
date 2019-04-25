@@ -32,6 +32,9 @@ class Tree:
     def make_id():
         return hashlib.md5(str(np.random.rand()).encode('utf8')).hexdigest()[:10]
 
+    def set_id(self, new_id):
+        self.tree_id = new_id
+
     def to_list(self):
         """
         Condense the tree into a nested list for easy visualization.  NOT HASHABLE because there is not control on order

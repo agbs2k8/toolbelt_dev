@@ -1,5 +1,6 @@
 
 toolbelt/alphavantage_api.json
 *.lnk
+*.so
 
 test_trees\.py
