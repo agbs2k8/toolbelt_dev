@@ -1,10 +1,11 @@
-# -*- coding: utf-8 -*-
-from functools import wraps
+#!python
+#cython: language_level=3
+# from functools import wraps
 from itertools import islice
-import pandas as pd
+# import pandas as pd
 
 
-def validate_df(func):
+'''def validate_df(func):
     """
     A decorator function to validate if the input is a pandas data frame
     :param func: a function to validate
@@ -30,14 +31,14 @@ def validate_str(func):
             return func(*args, **kwargs)
         else:
             raise TypeError('This tool only supports input as a string')
-    return wrapper
+    return wrapper'''
 
 
 def quicksort(xs):
     if not xs:
         return []
-    return quicksort([x for x in xs if x < xs[0]]) + [x for x in xs if x == xs[0]] +\
-           quicksort([x for x in xs if x > xs[0]])
+    return quicksort([x for x in xs if x < xs[0]]) + [x for x in xs if x == xs[0]] + quicksort(
+        [x for x in xs if x > xs[0]])
 
 
 def batch(iterable, n: int = 1):

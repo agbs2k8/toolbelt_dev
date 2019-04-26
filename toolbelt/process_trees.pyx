@@ -141,6 +141,12 @@ class Host:
     def set_unique_trees(self, data):
         self.unique_trees = data
 
+    def has_tree(self, new_tree):
+        for tree in self.get_unique_trees():
+            if tree.matches(new_tree):
+                return True
+        return False
+
     def add_tree(self, new_tree, reading_data=True):
         """
         Add a new tree to the Host's dict of trees.
