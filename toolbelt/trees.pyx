@@ -49,6 +49,14 @@ class Tree:
             else:
                 raise ValueError('Cannot find starting node; check that nodes exists.')
 
+    def print_tree(self, return_string=False):
+        self.check_tree()
+        result = self.starting_node.print_branch()
+        if return_string:
+            return result
+        else:
+            print(result)
+
     def get_layers(self):
         num_layers = self.get_depth()
         layers = [[self.starting_node]]
@@ -565,6 +573,15 @@ class Node:
                 if depth > max_depth:
                     max_depth = depth
             return max_depth + 1
+
+    def print_branch(self):
+        depth = 4*(len(self.get_branch_to_trunk())-1)
+        if self.parent and len(self.children) > 0:
+            return (" "*(depth-4))+'└── '+self.name+"\n"+"".join([child.print_branch() for child in self.children])
+        elif len(self.children) > 0:
+            return (" "*(depth-4))+self.name+"\n"+"".join([child.print_branch() for child in self.children])
+        else:
+            return (" "*(depth-4))+'└── '+self.name+"\n"
 
 
 def read_tree(filepath=None, json_str=None, data_dict=None):
