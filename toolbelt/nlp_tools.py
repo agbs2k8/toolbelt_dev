@@ -4,14 +4,14 @@ import string
 import re
 import nltk
 from nltk.corpus import stopwords
-from .utils import validate_str
+#from .utils import validate_str
 
 
 my_stopwords = stopwords.words('english') 
 stemmer = nltk.stem.snowball.SnowballStemmer('english')
 
 
-@validate_str
+#@validate_str
 def remove_punctuation(text):
     """
     Simple function that will take a string or list of strings, and return them in the 
