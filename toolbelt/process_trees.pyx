@@ -4,7 +4,7 @@ import json
 import copy
 import hashlib
 import numpy as np
-from trees import Tree, Node
+from .trees import Tree, Node
 """
 Notes on how to import from the github tracked directory:
     sys.path.append('/Users/ajwilson/GitRepos/toolbelt_dev/')
