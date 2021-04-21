@@ -7,11 +7,13 @@ __version__ = '0.0.4'
 __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
-from .stats import visualize_distribution, test_stationarity, bic, cramer_v, theil_u, corr_ratio
-from .utils import quicksort, batch, window
-from .web_tools import scrape_links_from_url, scrape_links_from_urls
+from .stats import visualize_distribution, test_stationarity, describe
+from .stats import sigmoid, linreg_cost, linreg_reg_cost, linreg, bic, cramer_v
+from .stats import conditional_entropy, theil_u, corr_ratio
+from .stats import MarkovChain, SequenceModel, get_unique_items
+from .stats import fourier_extrapolation
+from .utils import *
 from .trees import *
-from .process_trees import *
 from .feature_extraction import *
-#from .nlp_tools import remove_punctuation, remove_digits, tokenize_and_stem, tokenize_only, n_grams, sentences
-
+from .cluster import *
+from .network import *

@@ -1,10 +1,9 @@
-pandas
-nltk
-numpy
-matplotlib
-seaborn
-aiohttp
-cython
-scipy
-networkx
-scikit-learn
+pandas==0.24.2
+numpy== 1.16.2
+matplotlib==3.0.3
+seaborn==0.9.0
+cython==0.29.6
+scipy==1.2.1
+networkx==2.2
+scikit-learn==0.20.3
+requests

@@ -16,7 +16,7 @@ import scipy
 import scipy.sparse as sp
 import numpy as np
 
-from ..utils import window, quicksort
+from ..utils import window
 
 
 # Direct copy -- from sklearn.utils.fixes import _astype_copy_false
@@ -445,7 +445,7 @@ class LfihfTransformer(BaseEstimator, TransformerMixin):
 
         lf_type : 'natural', 'log', 'bool', 'pct', (default='natural')
             * 'natural' : the actual count is used for lf
-            * 'log' : sublinear lf scaling: = 1+ + log(lf)
+            * 'log' : sublinear lf scaling: = 1 + log(lf)
             * 'bool' : 1 if lf > 0 else 0
             * 'pct' : scaled by the length of the host's log list = pct of logs for the host
 
@@ -763,7 +763,7 @@ class LfihfVectorizer(CountVectorizer):
         X = super().transform(log_lists)
         return self._lfihf.transform(X, copy=False)
 
-
+'''
 class AprioriVectorizer(BaseEstimator):
     """Convert a collection of log IDs to a matrix of Apriori features.
 
@@ -885,3 +885,4 @@ class AprioriVectorizer(BaseEstimator):
         log_sets = self._lists_to_sets(logs_list)
         ap_sets = self._apriori_sets(log_sets)
         return self._count_sets(log_sets, ap_sets)
+'''
